@@ -1,6 +1,7 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { loginWithApi, signupWithApi } from '@/services/auth.service';
+import { editAgentDetails, editAgentProfilePic, loginWithApi, signupWithApi } from '@/services/auth.service';
 import type {
   AuthUser,
   LoginPayload,
@@ -9,13 +10,38 @@ import type {
   UpdateProfilePayload,
 } from '@/types/auth';
 
+const SESSION_FILE = `${FileSystem.documentDirectory}session.json`;
+
+async function saveSession(user: AuthUser) {
+  await FileSystem.writeAsStringAsync(SESSION_FILE, JSON.stringify(user));
+}
+
+async function loadSession(): Promise<AuthUser | null> {
+  try {
+    const info = await FileSystem.getInfoAsync(SESSION_FILE);
+    if (!info.exists) return null;
+    const json = await FileSystem.readAsStringAsync(SESSION_FILE);
+    return JSON.parse(json) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+async function clearSession() {
+  try {
+    await FileSystem.deleteAsync(SESSION_FILE, { idempotent: true });
+  } catch {}
+}
+
 type AuthContextValue = {
   isAuthenticated: boolean;
+  isInitializing: boolean;
   isLoading: boolean;
   user: AuthUser | null;
   login: (payload: LoginPayload) => Promise<void>;
   signup: (payload: SignupPayload) => Promise<void>;
-  updateProfile: (payload: UpdateProfilePayload) => void;
+  updateProfile: (payload: UpdateProfilePayload) => Promise<void>;
+  updateProfilePic: (imageUri: string) => Promise<void>;
   updateBankDetails: (payload: UpdateBankDetailsPayload) => void;
   logout: () => void;
 };
@@ -25,6 +51,14 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    loadSession().then((savedUser) => {
+      if (savedUser) setUser(savedUser);
+      setIsInitializing(false);
+    });
+  }, []);
 
   async function login(payload: LoginPayload) {
     setIsLoading(true);
@@ -32,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const nextUser = await loginWithApi(payload);
       console.log("nextUser",nextUser)
+      await saveSession(nextUser);
       setUser(nextUser);
     } finally {
       setIsLoading(false);
@@ -43,30 +78,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const nextUser = await signupWithApi(payload);
+      await saveSession(nextUser);
       setUser(nextUser);
     } finally {
       setIsLoading(false);
     }
   }
 
-  function logout() {
+  async function logout() {
+    await clearSession();
     setUser(null);
   }
 
-  function updateProfile(payload: UpdateProfilePayload) {
-    setUser((current) => {
-      if (!current) {
-        return current;
-      }
+  async function updateProfile(payload: UpdateProfilePayload) {
+    if (!user) return;
 
-      return {
-        ...current,
-        fullName: payload.fullName.trim(),
-        email: payload.email.trim().toLowerCase(),
-        phone: payload.phone.trim(),
-        profileImageUri: payload.profileImageUri,
-      };
+    const nextUser = await editAgentDetails({
+      agent_id: user.id,
+      full_name: payload.fullName.trim(),
+      email: payload.email.trim().toLowerCase(),
+      phone_number: payload.phone.trim(),
     });
+
+    setUser(nextUser);
+    await saveSession(nextUser);
+  }
+
+  async function updateProfilePic(imageUri: string) {
+    if (!user) return;
+    const nextUser = await editAgentProfilePic(user.id, imageUri);
+    setUser(nextUser);
+    await saveSession(nextUser);
   }
 
   function updateBankDetails(payload: UpdateBankDetailsPayload) {
@@ -92,15 +134,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       isAuthenticated: Boolean(user),
+      isInitializing,
       isLoading,
       user,
       login,
       signup,
       updateProfile,
+      updateProfilePic,
       updateBankDetails,
       logout,
     }),
-    [isLoading, user]
+    [isInitializing, isLoading, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

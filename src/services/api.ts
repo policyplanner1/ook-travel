@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URLS = {
-  local: 'http://192.168.1.198:1200',
+  local: 'http://192.168.1.193:1200',
   prod: 'https://policyplanner.com/travel-insurance',
 } as const;
 
@@ -21,11 +21,15 @@ export function resolveApiAssetUrl(url?: string | null) {
     return null;
   }
 
-  if (!url.startsWith('http://localhost:1200')) {
-    return url;
+  if (url.startsWith('/')) {
+    return `${baseURL}${url}`;
   }
 
-  return url.replace('http://localhost:1200', baseURL);
+  if (url.startsWith('http://localhost:1200')) {
+    return url.replace('http://localhost:1200', baseURL);
+  }
+
+  return url;
 }
 
 export const api = axios.create({

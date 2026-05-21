@@ -1,7 +1,36 @@
 import { router } from 'expo-router';
-import { Headphones, Images, Mail, MessageCircleMore, Phone, UserRound } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, CircleHelp, Headphones, Images, Mail, MessageCircleMore, Phone, UserRound } from 'lucide-react-native';
+import { useState } from 'react';
 import { Alert, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const faqs = [
+  {
+    question: 'How much commission will I receive?',
+    answer:
+      'You will earn 25% of the total premium amount collected during the month. Commission is calculated on the net premium after applicable taxes and is credited directly to your registered bank account.',
+  },
+  {
+    question: 'When will I receive my commission?',
+    answer:
+      'Commissions are processed and credited on the 15th of every month for the previous month\'s business. If the 15th falls on a public holiday, the credit will be made on the next working day.',
+  },
+  {
+    question: 'Can I obtain an agent certificate?',
+    answer:
+      'Yes, once you have completed all your profile details — including KYC verification and bank account information — your official agent certificate will be generated and made available for download from your profile.',
+  },
+  {
+    question: 'What should I do in case of a claim?',
+    answer:
+      'Please contact our support team immediately. Your dedicated Relationship Manager (RM) will guide you and the insured through the entire claims process, ensuring a smooth and hassle-free experience.',
+  },
+  {
+    question: 'How can I issue a bulk policy?',
+    answer:
+      'We provide a dedicated Bulk Documents option within the app. Simply navigate to the bulk upload section, prepare your data in the prescribed format, and upload it to generate multiple policies simultaneously.',
+  },
+] as const;
 
 const supportOptions = [
   {
@@ -23,6 +52,38 @@ const supportOptions = [
     action: 'https://wa.me/917218452626',
   },
 ] as const;
+
+function FAQItem({
+  index,
+  item,
+  total,
+}: {
+  index: number;
+  item: { question: string; answer: string };
+  total: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const isLast = index === total - 1;
+
+  return (
+    <View className={isLast ? '' : 'border-b border-slate-100'}>
+      <Pressable
+        onPress={() => setOpen((prev) => !prev)}
+        className="flex-row items-center justify-between py-4"
+      >
+        <Text className="flex-1 pr-3 text-sm font-bold text-sky-950">{item.question}</Text>
+        {open ? (
+          <ChevronUp size={18} color="#0C4A6E" strokeWidth={2.3} />
+        ) : (
+          <ChevronDown size={18} color="#94A3B8" strokeWidth={2.3} />
+        )}
+      </Pressable>
+      {open && (
+        <Text className="pb-4 text-sm leading-6 text-slate-500">{item.answer}</Text>
+      )}
+    </View>
+  );
+}
 
 export default function HelpScreen() {
   async function handleOpen(url: string) {
@@ -126,13 +187,21 @@ export default function HelpScreen() {
             </View>
           </Pressable>
           
-          {/* <View className="mt-5 rounded-[28px] bg-white/95 px-5 py-6" style={styles.panelShadow}>
-            <Text className="text-lg font-extrabold text-sky-950">Frequently asked help topics</Text>
-            <Text className="mt-4 text-sm leading-7 text-slate-600">
-              Policy download assistance, claim guidance, destination coverage details, nominee updates,
-              and quote submission help.
-            </Text>
-          </View> */}
+          <View className="mt-5 rounded-[28px] bg-white/95 px-5 py-6" style={styles.panelShadow}>
+            <View className="flex-row items-center gap-3 mb-4">
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-sky-100">
+                <CircleHelp size={20} color="#0C4A6E" strokeWidth={2.3} />
+              </View>
+              <View>
+                <Text className="text-xl font-extrabold text-sky-950">FAQs</Text>
+                <Text className="text-xs text-slate-500">Frequently Asked Questions</Text>
+              </View>
+            </View>
+
+            {faqs.map((item, index) => (
+              <FAQItem key={index} index={index} item={item} total={faqs.length} />
+            ))}
+          </View>
 
         </ScrollView>
       </SafeAreaView>

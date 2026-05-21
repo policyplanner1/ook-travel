@@ -292,6 +292,71 @@ export async function signupWithApi(payload: SignupPayload): Promise<AuthUser> {
   }
 }
 
+export async function sendSignupOtp(payload: { phone: string }): Promise<string> {
+  const requestBody = { mobile: payload.phone.trim() };
+
+  if (!requestBody.mobile) {
+    throw new Error('Phone number is required.');
+  }
+
+  console.log('Send signup OTP request:', {
+    url: `${baseURL}/auth/send-otp`,
+    body: requestBody,
+  });
+
+  try {
+    const { data } = await api.post<AuthMessageResponse>('/auth/send-otp', requestBody);
+    console.log('Send signup OTP response:', data);
+    return data.message || 'OTP sent successfully.';
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Send signup OTP error:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: `${baseURL}/auth/send-otp`,
+      });
+    }
+
+    throw new Error(getAuthErrorMessage(error, 'Failed to send OTP. Please try again.'));
+  }
+}
+
+export async function verifySignupOtp(payload: { phone: string; otp: string }): Promise<string> {
+  const requestBody = {
+    mobile: payload.phone.trim(),
+    otp: payload.otp.trim(),
+  };
+
+  if (!requestBody.mobile || !requestBody.otp) {
+    throw new Error('Phone number and OTP are required.');
+  }
+
+  console.log('Verify signup OTP request:', {
+    url: `${baseURL}/auth/verify-otp`,
+    body: requestBody,
+  });
+
+  try {
+    const { data } = await api.post<AuthMessageResponse>('/auth/verify-otp', requestBody);
+    console.log('Verify signup OTP response:', data);
+    return data.message || 'OTP verified successfully.';
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Verify signup OTP error:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: `${baseURL}/auth/verify-otp`,
+      });
+    }
+
+    throw new Error(getAuthErrorMessage(error, 'OTP verification failed. Please try again.'));
+  }
+}
+
 export async function requestPasswordResetOtp(payload: ForgotPasswordPayload): Promise<string> {
   const requestBody = {
     mobile: payload.mobile.trim(),
@@ -356,6 +421,80 @@ export async function verifyPasswordResetOtp(payload: VerifyResetOtpPayload): Pr
     }
 
     throw new Error(getAuthErrorMessage(error, 'OTP verification failed. Please try again.'));
+  }
+}
+
+type EditAgentDetailsPayload = {
+  agent_id: number;
+  full_name: string;
+  email: string;
+  phone_number: string;
+};
+
+type EditAgentDetailsResponse = {
+  ok: boolean;
+  message: string;
+  data: AuthApiAgent;
+};
+
+export async function editAgentDetails(payload: EditAgentDetailsPayload): Promise<AuthUser> {
+  console.log('Edit agent details request:', {
+    url: `${baseURL}/agent/details/edit`,
+    body: payload,
+  });
+
+  try {
+    const { data } = await api.put<EditAgentDetailsResponse>('/agent/details/edit', payload);
+    console.log('Edit agent details response:', data);
+    return mapAgentToAuthUser(data.data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Edit agent details error:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: `${baseURL}/agent/details/edit`,
+      });
+    }
+    throw new Error(getAuthErrorMessage(error, 'Failed to update profile. Please try again.'));
+  }
+}
+
+type EditProfilePicResponse = {
+  ok: boolean;
+  message: string;
+  agent?: AuthApiAgent;
+  data?: AuthApiAgent;
+};
+
+export async function editAgentProfilePic(agentId: number, imageUri: string): Promise<AuthUser> {
+  const filename = imageUri.split('/').pop() ?? 'profile.jpg';
+  const ext = /\.(\w+)$/.exec(filename)?.[1] ?? 'jpg';
+
+  const formData = new FormData();
+  formData.append('profile_pic', { uri: imageUri, name: filename, type: `image/${ext}` } as unknown as Blob);
+  formData.append('agent_id', String(agentId));
+
+  console.log('Edit profile pic request:', { url: `${baseURL}/agent/profile-pic/edit`, agentId });
+
+  try {
+    const { data } = await api.put<EditProfilePicResponse>('/agent/profile-pic/edit', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    console.log('Edit profile pic response:', data);
+    const agent = data.agent ?? data.data;
+    if (!agent) throw new Error('Invalid response from server.');
+    return mapAgentToAuthUser(agent);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Edit profile pic error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+    }
+    throw new Error(getAuthErrorMessage(error, 'Failed to update profile picture. Please try again.'));
   }
 }
 

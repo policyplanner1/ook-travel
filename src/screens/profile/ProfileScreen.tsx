@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentProps } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -28,7 +28,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { saveBankDetails } from '@/services/bank-details.service';
-import { editProfilePic, saveProfilePic } from '@/services/profile-pic.service';
 import { useAuth } from '@/store/auth';
 import type { AuthUser, BankDetails } from '@/types/auth';
 
@@ -50,8 +49,9 @@ function hasAnyBankDetail(details: BankDetails | null | undefined) {
 }
 
 export default function ProfileScreen() {
-  const { logout, updateBankDetails, updateProfile, user } = useAuth();
+  const { logout, updateBankDetails, updateProfile, updateProfilePic, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingPic, setIsUploadingPic] = useState(false);
   const [isBankDetailsModalVisible, setIsBankDetailsModalVisible] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -59,11 +59,6 @@ export default function ProfileScreen() {
   const [profileImageUri, setProfileImageUri] = useState<AuthUser['profileImageUri']>(null);
   const [bankDetails, setBankDetails] = useState<BankDetails>(initialBankDetails);
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
-  const [selectedProfileImageFile, setSelectedProfileImageFile] = useState<{
-    uri: string;
-    name: string;
-    type: string;
-  } | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingBankDetails, setIsSavingBankDetails] = useState(false);
 
@@ -76,13 +71,40 @@ export default function ProfileScreen() {
     setEmail(user.email);
     setPhone(user.phone);
     setProfileImageUri(user.profileImageUri);
-    setSelectedProfileImageFile(null);
     setBankDetails(user.bankDetails ?? initialBankDetails);
     setConfirmAccountNumber(user.bankDetails?.accountNumber ?? '');
   }, [user]);
 
+  async function handleEditProfilePic() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow access to your photo library to change your profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    try {
+      setIsUploadingPic(true);
+      await updateProfilePic(result.assets[0].uri);
+      Alert.alert('Profile picture updated', 'Your profile picture has been updated.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update profile picture.';
+      Alert.alert('Upload failed', message);
+    } finally {
+      setIsUploadingPic(false);
+    }
+  }
+
   function handleLogout() {
-    Alert.alert('Logout', 'Do you want to logout from this dummy session?', [
+    Alert.alert('Logout', 'Do you want to logout from this session?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Logout',
@@ -93,49 +115,6 @@ export default function ProfileScreen() {
         },
       },
     ]);
-  }
-
-  async function handlePickPhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert(
-        'Permission needed',
-        'Please allow gallery access to upload a profile picture.'
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (result.canceled || !result.assets.length) {
-      return;
-    }
-
-    const asset = result.assets[0];
-    const fileExtension = asset.uri.split('.').pop()?.toLowerCase();
-    const fallbackExtension =
-      fileExtension === 'png' || fileExtension === 'webp' ? fileExtension : 'jpg';
-    const fileName = asset.fileName ?? `profile-pic-${Date.now()}.${fallbackExtension}`;
-    const mimeType =
-      asset.mimeType ??
-      (fallbackExtension === 'png'
-        ? 'image/png'
-        : fallbackExtension === 'webp'
-          ? 'image/webp'
-          : 'image/jpeg');
-
-    setProfileImageUri(asset.uri);
-    setSelectedProfileImageFile({
-      uri: asset.uri,
-      name: fileName,
-      type: mimeType,
-    });
   }
 
   async function handleUpdateProfile() {
@@ -151,27 +130,12 @@ export default function ProfileScreen() {
     try {
       setIsSavingProfile(true);
 
-      let nextProfileImageUri = profileImageUri;
-
-      if (selectedProfileImageFile) {
-        const uploadProfilePic = user.profileImageUri ? editProfilePic : saveProfilePic;
-        const uploadedProfilePic = await uploadProfilePic({
-          agent_id: user.id,
-          profile_pic: selectedProfileImageFile,
-        });
-
-        nextProfileImageUri = uploadedProfilePic.profileImageUri ?? selectedProfileImageFile.uri;
-      }
-
-      updateProfile({
+      await updateProfile({
         fullName,
         email,
         phone,
-        profileImageUri: nextProfileImageUri,
       });
-      setSelectedProfileImageFile(null);
       setIsEditing(false);
-      setProfileImageUri(nextProfileImageUri);
       Alert.alert('Profile updated', 'Your profile details have been updated.');
     } catch (error) {
       const message =
@@ -300,7 +264,7 @@ export default function ProfileScreen() {
           </Pressable>
 
           <View className="mt-5 rounded-[30px] bg-white/95 px-6 py-7" style={styles.cardShadow}>
-            <View className="relative h-24 w-24">
+            <Pressable onPress={handleEditProfilePic} disabled={isUploadingPic} className="h-24 w-24">
               {profileImageUri ? (
                 <Image
                   source={{ uri: profileImageUri }}
@@ -312,15 +276,10 @@ export default function ProfileScreen() {
                   <UserRound size={40} color="#0C4A6E" strokeWidth={2.1} />
                 </View>
               )}
-              <Pressable
-                onPress={handlePickPhoto}
-                className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-2xl bg-orange-500"
-                style={styles.cameraShadow}
-                disabled={isSavingProfile}
-              >
-                <Camera size={18} color="#FFFFFF" strokeWidth={2.2} />
-              </Pressable>
-            </View>
+              <View style={styles.picEditBadge}>
+                <Camera size={13} color="#FFFFFF" strokeWidth={2.4} />
+              </View>
+            </Pressable>
 
             <View className="mt-5 flex-row items-center justify-between">
               <View className="mr-4 flex-1">
@@ -354,7 +313,7 @@ export default function ProfileScreen() {
               <View className="mt-6 rounded-[24px] bg-slate-50 px-4 py-4">
                 <Text className="text-lg font-extrabold text-sky-950">Edit Profile</Text>
                 <Text className="mt-2 text-sm leading-6 text-slate-500">
-                  Update your profile details and upload a picture from your phone gallery.
+                  Update your profile details.
                 </Text>
 
                 <View className="mt-4 gap-4">
@@ -372,19 +331,6 @@ export default function ProfileScreen() {
                     onChangeText={setPhone}
                     keyboardType="phone-pad"
                   />
-
-                  <Pressable
-                    onPress={handlePickPhoto}
-                    className="rounded-[20px] border border-dashed border-orange-300 bg-orange-50 px-4 py-4"
-                    disabled={isSavingProfile}
-                  >
-                    <Text className="text-sm font-bold text-orange-700">Upload Profile Pic</Text>
-                    <Text className="mt-1 text-sm text-slate-600">
-                      {selectedProfileImageFile
-                        ? `Selected: ${selectedProfileImageFile.name}`
-                        : 'Tap to choose an image from your mobile gallery.'}
-                    </Text>
-                  </Pressable>
 
                   <Pressable
                     onPress={handleUpdateProfile}
@@ -658,13 +604,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 10,
   },
-  cameraShadow: {
-    elevation: 5,
-    shadowColor: '#B45309',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -672,5 +611,23 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  picEditBadge: {
+    position: 'absolute',
+    bottom: -6,
+    right: -6,
+    height: 26,
+    width: 26,
+    borderRadius: 10,
+    backgroundColor: '#EA580C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#B45309',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
 });

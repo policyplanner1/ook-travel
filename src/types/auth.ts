@@ -36,7 +36,6 @@ export type UpdateProfilePayload = {
   fullName: string;
   email: string;
   phone: string;
-  profileImageUri: AuthUser['profileImageUri'];
 };
 
 export type UpdateBankDetailsPayload = BankDetails;
