@@ -7,7 +7,7 @@ import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { cashfreeCheckoutURL } from '@/services/api';
-import { issueStaticPolicy, verifyCashfreePaymentStatus } from '@/services/static-quote.service';
+import { issueBulkStaticPolicy, issueStaticPolicy, verifyCashfreePaymentStatus } from '@/services/static-quote.service';
 import {
   clearPendingStaticPolicyPayment,
   getPendingStaticPolicyPayment,
@@ -121,7 +121,11 @@ export default function CashfreeCheckoutScreen() {
       }
 
       setStatusMessage('Issuing policy...');
-      await issueStaticPolicy(pendingPayment.policyPayload);
+      if (pendingPayment.policyPayload.lead_type === 'bulk') {
+        await issueBulkStaticPolicy(pendingPayment.policyPayload, pendingPayment.bulkFile);
+      } else {
+        await issueStaticPolicy(pendingPayment.policyPayload);
+      }
 
       const issuedPolicyParams = buildIssuedPolicyParams(pendingPayment.policyPayload);
 
@@ -275,11 +279,13 @@ function buildCashfreeCheckoutHtml(paymentSessionId: string) {
 function buildIssuedPolicyParams(
   policyPayload: NonNullable<ReturnType<typeof getPendingStaticPolicyPayment>>['policyPayload']
 ) {
+  const premiumAmount = policyPayload.premium;
+
   return {
     travellerName: policyPayload.travellerDetails.name || 'Traveller',
     startDate: policyPayload.travellerDetails.startDate || '',
     endDate: policyPayload.travellerDetails.endDate || '',
-    premiumAmount: String(policyPayload.premium + 50),
+    premiumAmount: String(premiumAmount),
   };
 }
 

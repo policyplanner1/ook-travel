@@ -66,7 +66,7 @@ const agreementSections = [
 ];
 
 const companyDetails =
-  'Maa Pranaam Fortune LLP, a company incorporated under the Companies Act, 2013/1956, having its registered office at B/3, KPCT Mall, Fatima Nagar, Pune, Maharashtra, PIN - 411040 (hereinafter referred to as the "Company" or "Marketing Agency", which expression shall, unless repugnant to the context or meaning thereof, be deemed to mean and include its successors and permitted assigns);';
+  'MAA PRANAAM SUVIDHA LTD, a company incorporated under the Companies Act, 2013/1956, having its registered office at B/3, KPCT Mall, Fatima Nagar, Pune, Maharashtra, PIN - 411040 (hereinafter referred to as the "Company" or "Marketing Agency", which expression shall, unless repugnant to the context or meaning thereof, be deemed to mean and include its successors and permitted assigns);';
 
 const agentDetails =
   '[Agent Name/Company Name], a [Individual/Proprietorship/Partnership/Company] having its registered office/residence at [Address] (hereinafter referred to as the "Agent", which expression shall, unless repugnant to the context or meaning thereof, be deemed to mean and include its successors and permitted assigns).';
@@ -167,13 +167,13 @@ export default function LegalDocumentScreen() {
               <View className="gap-4 rounded-3xl bg-slate-50 px-4 py-4">
                 <View className="gap-1">
                   <Text className="text-base font-bold text-sky-950">
-                    For Maa Pranaam Fortune LLP (Marketing Agency)
+                    For MAA PRANAAM SUVIDHA LTD (Marketing Agency)
                   </Text>
                   <Text className="text-[15px] leading-6 text-slate-700">
                     Authorized Signatory: _______
                   </Text>
                   <Text className="text-[15px] leading-6 text-slate-700">
-                    Name: Maa Pranaam Fortune LLP
+                    Name: MAA PRANAAM SUVIDHA LTD
                   </Text>
                   <Text className="text-[15px] leading-6 text-slate-700">Title:</Text>
                 </View>

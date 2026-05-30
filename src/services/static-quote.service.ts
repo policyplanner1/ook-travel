@@ -53,13 +53,11 @@ export async function submitStaticQuote(payload: StaticQuotePayload) {
 }
 
 export async function issueStaticPolicy(payload: StaticIssuePolicyPayload) {
-  // console.log('Bharat Bhraman issue policy request:', {
-  //   url: `${STATIC_QUOTE_BASE_URL}/policy-issue/save`,
-  //   body: payload,
-  // });
-
   try {
-    const { data } = await staticQuoteApi.post('/policy-issue/save', payload);
+    const { data } = await staticQuoteApi.post('/policy-issue/save', {
+      lead_type: 'individual',
+      ...payload,
+    });
 
     try {
       await addDoc(collection(db, 'AUX_enquiry_leads'), {
@@ -85,6 +83,60 @@ export async function issueStaticPolicy(payload: StaticIssuePolicyPayload) {
       });
     }
 
+    throw error;
+  }
+}
+
+type BulkFile = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
+export async function issueBulkStaticPolicy(payload: StaticIssuePolicyPayload, bulkFile?: BulkFile) {
+  const formData = new FormData();
+
+  formData.append('lead_type', 'bulk');
+  if (payload.agent_id != null) {
+    formData.append('agent_id', String(payload.agent_id));
+  }
+  formData.append('no_of_days', String(payload.no_of_days));
+  formData.append('premium', String(payload.premium));
+  formData.append('product', payload.product);
+  formData.append('quoteDetails', JSON.stringify(payload.quoteDetails));
+  formData.append('travellerDetails', JSON.stringify(payload.travellerDetails));
+  if (payload.payment) {
+    formData.append('payment', JSON.stringify(payload.payment));
+  }
+  if (bulkFile) {
+    formData.append('file', { uri: bulkFile.uri, name: bulkFile.name, type: bulkFile.type } as never);
+  }
+
+  try {
+    const { data } = await staticQuoteApi.post('/policy-issue/save', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    try {
+      await addDoc(collection(db, 'AUX_enquiry_leads'), {
+        lead_type: 'travelBulkPolicyLeads',
+        apiResponse: data,
+        companyId: 'PP739792',
+        createdAt: serverTimestamp(),
+      });
+    } catch (firebaseError) {
+      console.log('Bulk policy firebase save error:', firebaseError);
+    }
+
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Bulk issue policy error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+    }
     throw error;
   }
 }

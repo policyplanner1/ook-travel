@@ -6,6 +6,7 @@ import { Alert, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View }
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createCashfreeOrder } from '@/services/static-quote.service';
+import { clearPendingBulkFile, getPendingBulkFile } from '@/store/pending-bulk-file';
 import {
   clearPendingStaticPolicyPayment,
   setPendingStaticPolicyPayment,
@@ -118,6 +119,11 @@ export default function StaticQuoteScreen() {
     );
   }
 
+  const totalTravellers = Object.values(
+    quoteResult.travellerDetails?.travellers ?? { Adults: 1, Children: 0, Seniors: 0 }
+  ).reduce((sum, n) => sum + n, 0);
+  const finalPremium = (quoteResult.details.premium + 50) * totalTravellers;
+
   const breakupRows = Object.entries(quoteResult.details).filter(
     ([key]) => !['id', 'no_of_days', 'premium'].includes(key)
   );
@@ -139,8 +145,10 @@ export default function StaticQuoteScreen() {
     }
 
     const travellerDetails = quoteResult.travellerDetails;
+    const isBulk = quoteResult.lead_type === 'bulk';
+    const bulkFile = isBulk ? getPendingBulkFile() : undefined;
     const orderTimestamp = Date.now();
-    const orderAmount = quoteResult.details.premium + 50;
+    const orderAmount = finalPremium;
     const sanitizedPhone = travellerDetails.phone.replace(/\D/g, '') || '9999999999';
     const sanitizedName = travellerDetails.name.trim() || 'Traveller';
     const sanitizedEmail = travellerDetails.email.trim() || 'traveller@example.com';
@@ -166,10 +174,14 @@ export default function StaticQuoteScreen() {
     try {
       setIsCreatingPayment(true);
       const policyPayload = {
+        lead_type: isBulk ? ('bulk' as const) : ('individual' as const),
         product: quoteResult.product,
         no_of_days: quoteResult.no_of_days,
-        premium: quoteResult.details.premium,
-        travellerDetails,
+        premium: finalPremium,
+        travellerDetails: {
+          ...travellerDetails,
+          travellers: { Adults: travellerDetails.travellers.Adults },
+        },
         quoteDetails: quoteResult.details,
         agent_id: user?.id,
         payment: {
@@ -194,8 +206,10 @@ export default function StaticQuoteScreen() {
       setPendingStaticPolicyPayment({
         orderId: payload.order_id,
         policyPayload,
+        ...(bulkFile ? { bulkFile } : {}),
       });
 
+      clearPendingBulkFile();
 
       router.push({
         pathname: '/cashfree-checkout',
@@ -206,6 +220,7 @@ export default function StaticQuoteScreen() {
       });
     } catch (error) {
       clearPendingStaticPolicyPayment();
+      clearPendingBulkFile();
       console.log('Cashfree payment start error:', error);
 
       const message =
@@ -249,10 +264,14 @@ export default function StaticQuoteScreen() {
                     Final Premium
                   </Text> 
                   <Text className="mt-2 text-5xl font-extrabold text-sky-950">
-                    Rs. {quoteResult.details.premium + 50}
+                    Rs. {finalPremium}
                   </Text>
                   <Text className="mt-3 text-sm font-medium text-slate-600">
                     Plan for {quoteResult.no_of_days} days
+                  </Text>
+                  <Text className="mt-1 text-sm font-medium text-slate-500">
+                    {totalTravellers} Traveler{totalTravellers === 1 ? '' : 's'} · Rs.{' '}
+                    {quoteResult.details.premium + 50} per person
                   </Text>
                 </View>
 
@@ -349,7 +368,14 @@ function buildTravellerRows(quoteResult: StaticQuoteResponse) {
     ];
   }
 
+  const totalTravellersCount =
+    travellerDetails.travellers.Adults;
+
   return [
+    {
+      label: 'No. of travelers',
+      value: `${totalTravellersCount} (Adults: ${travellerDetails.travellers.Adults})`,
+    },
     {
       label: 'Travel dates',
       value:

@@ -10,10 +10,11 @@ type PincodeApiResponse = Array<{
 }>;
 
 export async function fetchCityStateByPincode(pinCode: string) {
+  console.log("pincode",`https://api.postalpincode.in/pincode/${pinCode}`)
   const { data } = await axios.get<PincodeApiResponse>(
     `https://api.postalpincode.in/pincode/${pinCode}`
   );
-
+console.log("pincode data",data)
   const result = data[0];
   const postOffice = result?.PostOffice?.[0];
 

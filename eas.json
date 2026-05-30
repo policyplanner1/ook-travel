@@ -8,11 +8,19 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_MODE": "prod",
+        "EXPO_PUBLIC_CASHFREE_MODE": "local"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_MODE": "prod",
+        "EXPO_PUBLIC_CASHFREE_MODE": "local"
       }
     }
   }

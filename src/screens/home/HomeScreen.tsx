@@ -19,6 +19,7 @@ import {
 import type { DateData } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BulkQuoteStepTwo, type BulkFormOpenPanel, type BulkTravelForm } from '@/components/forms/BulkQuoteStepTwo';
 import { QuoteStepOne } from '@/components/forms/QuoteStepOne';
 import { QuoteStepTwo } from '@/components/forms/QuoteStepTwo';
 import { benefits, cities } from '@/constants/quote';
@@ -27,6 +28,7 @@ import { fetchCityStateByPincode } from '@/services/pincode.service';
 // import { submitQuote } from '@/services/quote.service';
 import { submitBulkInsuranceUpload, submitStaticQuote } from '@/services/static-quote.service';
 import { useAuth } from '@/store/auth';
+import { clearPendingBulkFile, setPendingBulkFile } from '@/store/pending-bulk-file';
 import { setLatestStaticQuoteResult } from '@/store/static-quote-result';
 import type { CustomerDetailsFormData, OpenPanel, TravelQuoteFormData, TravelerType } from '@/types/quote';
 
@@ -66,6 +68,15 @@ const initialCustomerForm: CustomerDetailsFormData = {
   nomineeName: '',
 };
 
+const initialBulkForm: BulkTravelForm = {
+  startDate: null,
+  endDate: null,
+  name: '',
+  email: '',
+  phone: '',
+  travellers: { Adults: 1, Children: 0, Seniors: 0 },
+};
+
 const allowedBulkDocumentTypes = [
   'application/pdf',
   'text/csv',
@@ -91,6 +102,8 @@ export default function HomeScreen() {
   const [travelForm, setTravelForm] = useState<TravelQuoteFormData>(initialTravelForm);
   const [customerForm, setCustomerForm] = useState<CustomerDetailsFormData>(initialCustomerForm);
   const [bulkDocument, setBulkDocument] = useState<BulkUploadDocument | null>(null);
+  const [bulkForm, setBulkForm] = useState<BulkTravelForm>(initialBulkForm);
+  const [openBulkPanel, setOpenBulkPanel] = useState<BulkFormOpenPanel>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickingBulkDocument, setIsPickingBulkDocument] = useState(false);
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
@@ -183,14 +196,54 @@ export default function HomeScreen() {
     setInsuranceRequestType(nextType);
     setStep(1);
     setOpenPanel(null);
+    setOpenBulkPanel(null);
     setHasAcceptedPrivacyPolicy(false);
 
     if (nextType === 'individual') {
       setBulkDocument(null);
+      setBulkForm(initialBulkForm);
       return;
     }
 
     setCustomerForm(initialCustomerForm);
+  }
+
+  function toggleBulkPanel(panel: Exclude<BulkFormOpenPanel, null>) {
+    setOpenBulkPanel((current) => (current === panel ? null : panel));
+  }
+
+  function onBulkDayPress(day: import('react-native-calendars').DateData) {
+    const selected = day.dateString;
+    setBulkForm((current) => {
+      if (!current.startDate) {
+        return { ...current, startDate: selected, endDate: selected };
+      }
+      if (current.endDate && current.startDate === current.endDate && selected > current.startDate) {
+        return { ...current, endDate: selected };
+      }
+      if (selected < current.startDate) {
+        return { ...current, startDate: selected, endDate: selected };
+      }
+      if (!current.endDate || selected >= current.startDate) {
+        return { ...current, endDate: selected };
+      }
+      return { ...current, startDate: selected, endDate: selected };
+    });
+  }
+
+  function onBulkChangeTraveller(type: import('@/types/quote').TravelerType, delta: number) {
+    setBulkForm((current) => ({
+      ...current,
+      travellers: {
+        ...current.travellers,
+        [type]: Math.max(type === 'Adults' ? 1 : 0, current.travellers[type] + delta),
+      },
+    }));
+  }
+
+  function handleBulkGoToStep2() {
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    setStep(2);
   }
 
   function goToDetailsStep() {
@@ -207,6 +260,80 @@ export default function HomeScreen() {
     setOpenPanel(null);
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     setStep(2);
+  }
+
+  async function handleBulkQuoteSubmit() {
+    if (!bulkForm.startDate || !bulkForm.endDate) {
+      Alert.alert('Missing details', 'Please select travel dates before getting a quote.');
+      return;
+    }
+    if (!bulkForm.name.trim()) {
+      Alert.alert('Missing details', 'Please enter the group name.');
+      return;
+    }
+    if (!bulkForm.email.trim()) {
+      Alert.alert('Missing details', 'Please enter an email address.');
+      return;
+    }
+    if (bulkForm.phone.replace(/\D/g, '').length !== 10) {
+      Alert.alert('Missing details', 'Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const noOfDays = getTripDurationInDays(bulkForm.startDate, bulkForm.endDate);
+      const response = await submitStaticQuote({ no_of_days: noOfDays });
+
+      // Persist the bulk file so StaticQuoteScreen can include it in the pending payment
+      setPendingBulkFile(
+        bulkDocument
+          ? {
+              uri: bulkDocument.uri,
+              name: bulkDocument.name,
+              type: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+            }
+          : null
+      );
+
+      setLatestStaticQuoteResult({
+        ...response,
+        lead_type: 'bulk',
+        travellerDetails: {
+          selectedDestination: '',
+          startDate: bulkForm.startDate,
+          endDate: bulkForm.endDate,
+          travellers: bulkForm.travellers,
+          name: bulkForm.name,
+          email: bulkForm.email,
+          phone: bulkForm.phone,
+          gender: '',
+          panNo: '',
+          dob: '',
+          pinCode: '',
+          streetName: '',
+          city: '',
+          state: '',
+          maritalStatus: '',
+          nomineeName: '',
+        },
+      });
+
+      setStep(1);
+      setOpenBulkPanel(null);
+      setBulkDocument(null);
+      setBulkForm(initialBulkForm);
+      router.push('/static-quote');
+    } catch (error) {
+      clearPendingBulkFile();
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to get the quote right now. Please try again.';
+      Alert.alert('Failed', message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handlePickBulkDocument() {
@@ -714,20 +841,32 @@ export default function HomeScreen() {
                         )}
 
                         <Pressable
-                          className={`mt-5 h-14 items-center justify-center rounded-2xl ${
-                            isSubmitting ? 'bg-orange-300' : 'bg-orange-500'
-                          }`}
+                          className="mt-5 h-14 items-center justify-center rounded-2xl bg-orange-500"
                           style={styles.buttonShadow}
-                          onPress={handleBulkSubmit}
-                          disabled={isSubmitting}
+                          onPress={handleBulkGoToStep2}
                         >
-                          <Text className="text-lg font-extrabold text-white">
-                            {isSubmitting ? 'Submitting...' : 'Submit Bulk Request'}
-                          </Text>
+                          <Text className="text-lg font-extrabold text-white">Next</Text>
                         </Pressable>
                       </View>
                     </>
                   )
+                ) : insuranceRequestType === 'bulk' ? (
+                  <BulkQuoteStepTwo
+                    form={bulkForm}
+                    openPanel={openBulkPanel}
+                    onTogglePanel={toggleBulkPanel}
+                    onDayPress={onBulkDayPress}
+                    onChangeTraveller={onBulkChangeTraveller}
+                    onChangeName={(value) => setBulkForm((c) => ({ ...c, name: value }))}
+                    onChangeEmail={(value) => setBulkForm((c) => ({ ...c, email: value }))}
+                    onChangePhone={(value) =>
+                      setBulkForm((c) => ({ ...c, phone: value.replace(/\D/g, '').slice(0, 10) }))
+                    }
+                    onBack={() => setStep(1)}
+                    onSubmit={handleBulkQuoteSubmit}
+                    isSubmitting={isSubmitting}
+                    styles={{ fieldShadow: styles.fieldShadow, buttonShadow: styles.buttonShadow }}
+                  />
                 ) : (
                   <QuoteStepTwo
                     form={customerForm}

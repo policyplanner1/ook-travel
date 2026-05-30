@@ -149,14 +149,25 @@ export function QuoteStepTwo({
                 keyboardType={field.keyboardType ?? 'default'}
                 autoCapitalize={field.autoCapitalize ?? 'sentences'}
                 maxLength={field.key === 'dob' ? 10 : undefined}
-                editable={field.key !== 'city' && field.key !== 'state'}
-                className="min-h-14 rounded-md bg-white px-4 py-4 text-base text-slate-700"
+                editable={
+                  (field.key !== 'city' && field.key !== 'state') ||
+                  !isFetchingPincode
+                }
+                className={`min-h-14 rounded-md px-4 py-4 text-base text-slate-700 ${
+                  (field.key === 'city' || field.key === 'state') && isFetchingPincode
+                    ? 'bg-slate-100'
+                    : 'bg-white'
+                }`}
                 style={styles.fieldShadow}
               />
             )}
             {field.key === 'pinCode' && isFetchingPincode ? (
               <Text className="mt-2 ml-1 text-xs font-medium text-sky-700">
                 Fetching city and state from PIN code...
+              </Text>
+            ) : field.key === 'pinCode' && !isFetchingPincode && form.city ? (
+              <Text className="mt-2 ml-1 text-xs font-medium text-slate-400">
+                City and state auto-filled — you can edit them if needed.
               </Text>
             ) : null}
             {(field.key === 'phone') && isFetchingCkyc ? (

@@ -182,7 +182,7 @@ export default function HelpScreen() {
             <View className="ml-4 flex-1">
               <Text className="text-lg font-extrabold text-sky-950">Profile & Logout</Text>
               <Text className="mt-1 text-sm leading-7 text-slate-600">
-                View the current static profile and logout from the dummy session.
+                View your profile details and logout from your current session.
               </Text>
             </View>
           </Pressable>

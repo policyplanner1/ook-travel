@@ -144,7 +144,7 @@ export type StaticQuoteTravellerDetails = {
   selectedDestination: string;
   startDate: string | null;
   endDate: string | null;
-  travellers: Record<TravelerType, number>;
+  travellers: { Adults: number; Children?: number; Seniors?: number };
   name: string;
   email: string;
   phone: string;
@@ -164,6 +164,7 @@ export type StaticQuoteResponse = {
   no_of_days: number;
   details: StaticQuoteDetails;
   travellerDetails?: StaticQuoteTravellerDetails;
+  lead_type?: 'individual' | 'bulk';
 };
 
 export type BulkInsuranceUploadResponse = {
@@ -182,6 +183,7 @@ export type BulkInsuranceUploadResponse = {
 };
 
 export type StaticIssuePolicyPayload = {
+  lead_type?: 'individual' | 'bulk';
   product: string;
   no_of_days: number;
   premium: number;
@@ -190,6 +192,7 @@ export type StaticIssuePolicyPayload = {
   agent_id?: number;
   payment?: {
     status: string;
+    transactionId?: string;
   };
 };
 
