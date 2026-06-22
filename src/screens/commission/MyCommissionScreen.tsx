@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getAllIssuedPolicies } from '@/services/static-quote.service';
+import { getAllIssuedPolicies } from '@/services/policy.service';
 import { useAuth } from '@/store/auth';
 import type { IssuedPolicyRecord } from '@/types/quote';
 

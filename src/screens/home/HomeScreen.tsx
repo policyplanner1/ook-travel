@@ -25,12 +25,11 @@ import { QuoteStepTwo } from '@/components/forms/QuoteStepTwo';
 import { benefits, cities } from '@/constants/quote';
 import { fetchCkycDetails } from '@/services/ckyc.service';
 import { fetchCityStateByPincode } from '@/services/pincode.service';
-// import { submitQuote } from '@/services/quote.service';
-import { submitBulkInsuranceUpload, submitStaticQuote } from '@/services/static-quote.service';
+import { submitBulkInsuranceUpload } from '@/services/policy.service';
+import { submitQuote } from '@/services/quote.service';
 import { useAuth } from '@/store/auth';
-import { clearPendingBulkFile, setPendingBulkFile } from '@/store/pending-bulk-file';
-import { setLatestStaticQuoteResult } from '@/store/static-quote-result';
-import type { CustomerDetailsFormData, OpenPanel, TravelQuoteFormData, TravelerType } from '@/types/quote';
+import { setLatestQuoteResult } from '@/store/quote-result';
+import type { CkycLookupResponse, CustomerDetailsFormData, OpenPanel, TravelQuoteFormData, TravelerType } from '@/types/quote';
 
 type InsuranceRequestType = 'individual' | 'bulk';
 
@@ -104,6 +103,7 @@ export default function HomeScreen() {
   const [bulkDocument, setBulkDocument] = useState<BulkUploadDocument | null>(null);
   const [bulkForm, setBulkForm] = useState<BulkTravelForm>(initialBulkForm);
   const [openBulkPanel, setOpenBulkPanel] = useState<BulkFormOpenPanel>(null);
+  const [ckycData, setCkycData] = useState<CkycLookupResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickingBulkDocument, setIsPickingBulkDocument] = useState(false);
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
@@ -198,6 +198,7 @@ export default function HomeScreen() {
     setOpenPanel(null);
     setOpenBulkPanel(null);
     setHasAcceptedPrivacyPolicy(false);
+    setCkycData(null);
 
     if (nextType === 'individual') {
       setBulkDocument(null);
@@ -260,80 +261,6 @@ export default function HomeScreen() {
     setOpenPanel(null);
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     setStep(2);
-  }
-
-  async function handleBulkQuoteSubmit() {
-    if (!bulkForm.startDate || !bulkForm.endDate) {
-      Alert.alert('Missing details', 'Please select travel dates before getting a quote.');
-      return;
-    }
-    if (!bulkForm.name.trim()) {
-      Alert.alert('Missing details', 'Please enter the group name.');
-      return;
-    }
-    if (!bulkForm.email.trim()) {
-      Alert.alert('Missing details', 'Please enter an email address.');
-      return;
-    }
-    if (bulkForm.phone.replace(/\D/g, '').length !== 10) {
-      Alert.alert('Missing details', 'Please enter a valid 10-digit phone number.');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      const noOfDays = getTripDurationInDays(bulkForm.startDate, bulkForm.endDate);
-      const response = await submitStaticQuote({ no_of_days: noOfDays });
-
-      // Persist the bulk file so StaticQuoteScreen can include it in the pending payment
-      setPendingBulkFile(
-        bulkDocument
-          ? {
-              uri: bulkDocument.uri,
-              name: bulkDocument.name,
-              type: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
-            }
-          : null
-      );
-
-      setLatestStaticQuoteResult({
-        ...response,
-        lead_type: 'bulk',
-        travellerDetails: {
-          selectedDestination: '',
-          startDate: bulkForm.startDate,
-          endDate: bulkForm.endDate,
-          travellers: bulkForm.travellers,
-          name: bulkForm.name,
-          email: bulkForm.email,
-          phone: bulkForm.phone,
-          gender: '',
-          panNo: '',
-          dob: '',
-          pinCode: '',
-          streetName: '',
-          city: '',
-          state: '',
-          maritalStatus: '',
-          nomineeName: '',
-        },
-      });
-
-      setStep(1);
-      setOpenBulkPanel(null);
-      setBulkDocument(null);
-      setBulkForm(initialBulkForm);
-      router.push('/static-quote');
-    } catch (error) {
-      clearPendingBulkFile();
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Unable to get the quote right now. Please try again.';
-      Alert.alert('Failed', message);
-    } finally {
-      setIsSubmitting(false);
-    }
   }
 
   async function handlePickBulkDocument() {
@@ -435,6 +362,7 @@ export default function HomeScreen() {
         ckycLookupRef.current += 1;
         lastCkycLookupKeyRef.current = '';
         setIsFetchingCkyc(false);
+        setCkycData(null);
 
         if (key === 'panNo' && !panNo) {
           setCustomerForm((current) => ({ ...current, name: '' }));
@@ -456,6 +384,7 @@ export default function HomeScreen() {
           }
 
           lastCkycLookupKeyRef.current = lookupKey;
+          setCkycData(response);
 
           setCustomerForm((current) => ({
             ...current,
@@ -470,6 +399,7 @@ export default function HomeScreen() {
           }
 
           lastCkycLookupKeyRef.current = '';
+          setCkycData(null);
           setCustomerForm((current) => ({
             ...current,
             panNo,
@@ -551,47 +481,29 @@ export default function HomeScreen() {
       return;
     }
 
+    if (isFetchingCkyc) {
+      Alert.alert('Please wait', 'CKYC verification is in progress. Please wait before submitting.');
+      return;
+    }
+
+    if (!ckycData) {
+      Alert.alert('Verification required', 'CKYC verification failed or is incomplete. Please check your PAN, DOB, and phone number.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      const noOfDays = getTripDurationInDays(travelForm.startDate, travelForm.endDate);
 
-      // const response = await submitQuote({
-      //   ...travelForm,
-      //   ...customerForm,
-      // });
-      // setLatestQuoteResult(response);
+      const response = await submitQuote({ ...travelForm, ...customerForm }, ckycData);
+      setLatestQuoteResult(response);
 
-      const response = await submitStaticQuote({
-        no_of_days: noOfDays,
-      });
-
-      setLatestStaticQuoteResult({
-        ...response,
-        travellerDetails: {
-          selectedDestination: travelForm.selectedDestination,
-          startDate: travelForm.startDate,
-          endDate: travelForm.endDate,
-          travellers: travelForm.travellers,
-          name: customerForm.name,
-          email: customerForm.email,
-          phone: customerForm.phone,
-          gender: customerForm.gender,
-          panNo: customerForm.panNo,
-          dob: customerForm.dob,
-          pinCode: customerForm.pinCode,
-          streetName: customerForm.streetName,
-          city: customerForm.city,
-          state: customerForm.state,
-          maritalStatus: customerForm.maritalStatus,
-          nomineeName: customerForm.nomineeName,
-        },
-      });
       setStep(1);
       setOpenPanel(null);
       setTravelForm(initialTravelForm);
       setCustomerForm(initialCustomerForm);
+      setCkycData(null);
       setHasAcceptedPrivacyPolicy(false);
-      router.push('/static-quote');
+      router.push('/quote');
     } catch (error) {
       const message =
         error instanceof Error
@@ -863,7 +775,7 @@ export default function HomeScreen() {
                       setBulkForm((c) => ({ ...c, phone: value.replace(/\D/g, '').slice(0, 10) }))
                     }
                     onBack={() => setStep(1)}
-                    onSubmit={handleBulkQuoteSubmit}
+                    onSubmit={handleBulkSubmit}
                     isSubmitting={isSubmitting}
                     styles={{ fieldShadow: styles.fieldShadow, buttonShadow: styles.buttonShadow }}
                   />
@@ -977,18 +889,6 @@ function getMimeTypeFromFileName(fileName: string) {
   }
 }
 
-function getTripDurationInDays(startDate: string | null, endDate: string | null) {
-  if (!startDate || !endDate) {
-    return 1;
-  }
-
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const diffInMs = end.getTime() - start.getTime();
-  const oneDayInMs = 24 * 60 * 60 * 1000;
-
-  return Math.max(1, Math.floor(diffInMs / oneDayInMs) + 1);
-}
 
 const styles = StyleSheet.create({
   backgroundImage: {

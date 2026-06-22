@@ -95,9 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const nextUser = await editAgentDetails({
       agent_id: user.id,
-      full_name: payload.fullName.trim(),
+      fullName: payload.fullName.trim(),
       email: payload.email.trim().toLowerCase(),
-      phone_number: payload.phone.trim(),
+      phoneNumber: payload.phone.trim(),
     });
 
     setUser(nextUser);

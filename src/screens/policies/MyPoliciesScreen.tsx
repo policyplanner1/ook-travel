@@ -24,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   getAllIssuedPolicies,
   getIssuedPolicyInvoiceUrl,
-} from '@/services/static-quote.service';
+} from '@/services/policy.service';
 import { useAuth } from '@/store/auth';
 import type { IssuedPolicyRecord } from '@/types/quote';
 import { formatDate } from '@/utils/date';

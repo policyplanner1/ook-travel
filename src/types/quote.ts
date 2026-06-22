@@ -117,6 +117,7 @@ export type ProposalResponseData = {
 export type QuoteResponse = {
   message: string;
   proposalResponse: ProposalResponseData;
+  premiumAmount: string;
 };
 
 export type StaticQuoteDetails = {

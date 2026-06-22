@@ -49,11 +49,9 @@ function RootNavigator() {
     return (
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="cashfree-checkout" />
         <Stack.Screen name="gallery" />
         <Stack.Screen name="policy-issued" />
         <Stack.Screen name="quote" />
-        <Stack.Screen name="static-quote" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="terms-and-conditions" />
         <Stack.Screen name="privacy-policy" />

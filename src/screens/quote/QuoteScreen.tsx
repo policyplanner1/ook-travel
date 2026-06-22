@@ -12,45 +12,9 @@ import { ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { clearLatestQuoteResult, getLatestQuoteResult } from '@/store/quote-result';
-import type { QuoteResponse } from '@/types/quote';
-
-const STATIC_QUOTE_RESULT: QuoteResponse = {
-  message: 'This is temporary static quote data for UI preview. Remove it once the live API flow is ready.',
-  proposalResponse: {
-    pRequestid_out: 'OKT-QUOTE-240422',
-    pErrorCode_out: '0',
-    pTrvPartnerDtls_inout: {
-      firstname: 'Aftab',
-      middlename: 'Ashok',
-      lastname: 'Naik',
-      title: 'Mr',
-      sex: 'Male',
-      maritalstatus: 'Single',
-      city: 'Pune',
-      state: 'Maharashtra',
-      streetname: 'MG Road',
-      building: 'A-204',
-      pincode: '411048',
-      email: 'aftabnaik1999@gmail.com',
-      dob: '12/08/1999',
-      mobileNo: '9876543210',
-      assigneeName: 'Sneha',
-    },
-    pTrvPolDtls_inout: {
-      travelplan: 'Travel Secure Gold',
-      areaplan: 'Europe',
-      fromDate: '2026-05-10',
-      toDate: '2026-05-18',
-      finalPremium: '1249',
-      loading: 'https://example.com/payment',
-      requestid: 'REQ-240422-01',
-      returnpath: 'https://example.com/return',
-    },
-  },
-};
 
 export default function QuoteScreen() {
-  const quoteResult = getLatestQuoteResult() ?? STATIC_QUOTE_RESULT;
+  const quoteResult = getLatestQuoteResult();
 
   if (!quoteResult) {
     return (
@@ -83,6 +47,10 @@ export default function QuoteScreen() {
 
   const partner = quoteResult.proposalResponse.pTrvPartnerDtls_inout;
   const policy = quoteResult.proposalResponse.pTrvPolDtls_inout;
+
+  const PLATFORM_FEE = 50;
+  const basePremium = Number(quoteResult.premiumAmount) || 0;
+  const totalPremium = basePremium + PLATFORM_FEE;
 
   async function openPaymentGateway() {
     await Linking.openURL(policy.loading);
@@ -131,8 +99,11 @@ export default function QuoteScreen() {
                   <Text className="text-sm font-bold uppercase tracking-[1.5px] text-slate-400">
                     Final Premium
                   </Text>
-                  <Text className="mt-2 text-5xl font-extrabold text-sky-950">Rs. {policy.finalPremium}</Text>
-                  <Text className="mt-3 text-sm font-medium text-slate-600">
+                  <Text className="mt-2 text-5xl font-extrabold text-sky-950">Rs. {totalPremium}</Text>
+                  <View className="mt-2 flex-row items-center gap-1">
+                    <Text className="text-xs text-slate-400">Rs. {basePremium} + Rs. 50 platform fee</Text>
+                  </View>
+                  <Text className="mt-2 text-sm font-medium text-slate-600">
                     {policy.travelplan} for {policy.areaplan}
                   </Text>
                 </View>

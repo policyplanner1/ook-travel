@@ -21,9 +21,10 @@ type AuthApiAgent = {
   profile_image_uri?: string | null;
   profilePic?: string | null;
   profile_pic?: string | null;
+  profile_photo?: string | null;
   avatar?: string | null;
   image?: string | null;
-  phoneNumber?: string;
+  mobile?: string;
   phone_number?: string;
   isActive?: boolean | number;
   is_active?: boolean | number;
@@ -33,14 +34,18 @@ type AuthApiAgent = {
   account_holder_name?: string;
   accountNumber?: string;
   account_number?: string;
+  bank_account?: string;
   bankName?: string;
   bank_name?: string;
   branchName?: string;
   branch_name?: string;
+  bank_branch?: string;
   ifscCode?: string;
   ifsc_code?: string;
+  bank_ifsc?: string;
   panCardNumber?: string;
   pan_card_number?: string;
+  pan?: string;
   bankDetails?: {
     accountHolderName?: string;
     account_holder_name?: string;
@@ -72,9 +77,13 @@ type AuthApiAgent = {
 };
 
 type AuthApiResponse = {
-  ok: boolean;
+  success: boolean;
   message: string;
-  agent: AuthApiAgent;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+    agent: AuthApiAgent;
+  };
 };
 
 type AuthMessageResponse = {
@@ -125,24 +134,28 @@ function mapAgentBankDetails(agent: AuthApiAgent): BankDetails | null {
   const accountNumber =
     agent.accountNumber ??
     agent.account_number ??
+    agent.bank_account ??
     nestedBankDetails?.accountNumber ??
     nestedBankDetails?.account_number ??
     '';
   const ifscCode =
     agent.ifscCode ??
     agent.ifsc_code ??
+    agent.bank_ifsc ??
     nestedBankDetails?.ifscCode ??
     nestedBankDetails?.ifsc_code ??
     '';
   const branchName =
     agent.branchName ??
     agent.branch_name ??
+    agent.bank_branch ??
     nestedBankDetails?.branchName ??
     nestedBankDetails?.branch_name ??
     '';
   const panCardNumber =
     agent.panCardNumber ??
     agent.pan_card_number ??
+    agent.pan ??
     nestedBankDetails?.panCardNumber ??
     nestedBankDetails?.pan_card_number ??
     '';
@@ -175,6 +188,7 @@ function mapAgentProfileImageUri(agent: AuthApiAgent) {
     agent.profile_image_uri ??
     agent.profilePic ??
     agent.profile_pic ??
+    agent.profile_photo ??
     agent.avatar ??
     agent.image ??
     null
@@ -186,7 +200,7 @@ function mapAgentToAuthUser(agent: AuthApiAgent): AuthUser {
     id: agent.id,
     fullName: (agent.fullName ?? agent.full_name ?? '').trim(),
     email: agent.email,
-    phone: (agent.phoneNumber ?? agent.phone_number ?? '').trim(),
+    phone: (agent.mobile ?? agent.phone_number ?? '').trim(),
     isActive: Boolean(agent.isActive ?? agent.is_active),
     membershipId: `OKT-TRAVEL-${String(agent.id).padStart(4, '0')}`,
     joinedOn: formatApiDate(agent.created_at),
@@ -224,8 +238,8 @@ export async function loginWithApi(payload: LoginPayload): Promise<AuthUser> {
 
   try {
     const { data } = await api.post<AuthApiResponse>('/auth/login', requestBody);
-    console.log('Login response:', data);
-    return mapAgentToAuthUser(data.agent);
+    console.log('Login response:', data?.data?.agent);
+    return mapAgentToAuthUser(data.data.agent);
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.log('Login error:', {
@@ -243,7 +257,7 @@ export async function loginWithApi(payload: LoginPayload): Promise<AuthUser> {
 
 export async function signupWithApi(payload: SignupPayload): Promise<AuthUser> {
   const requestBody = {
-    fullname: payload.fullName.trim(),
+    fullName: payload.fullName.trim(),
     email: payload.email.trim().toLowerCase(),
     phoneNumber: payload.phone.trim(),
     password: payload.password,
@@ -251,7 +265,7 @@ export async function signupWithApi(payload: SignupPayload): Promise<AuthUser> {
   };
 
   if (
-    !requestBody.fullname ||
+    !requestBody.fullName ||
     !requestBody.email ||
     !requestBody.phoneNumber ||
     !requestBody.password.trim() ||
@@ -276,7 +290,7 @@ export async function signupWithApi(payload: SignupPayload): Promise<AuthUser> {
   try {
     const { data } = await api.post<AuthApiResponse>('/auth/signup', requestBody);
     console.log('Signup response:', data);
-    return mapAgentToAuthUser(data.agent);
+    return mapAgentToAuthUser(data.data.agent);
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.log('Signup error:', {
@@ -293,9 +307,9 @@ export async function signupWithApi(payload: SignupPayload): Promise<AuthUser> {
 }
 
 export async function sendSignupOtp(payload: { phone: string }): Promise<string> {
-  const requestBody = { mobile: payload.phone.trim() };
+  const requestBody = { phoneNumber: payload.phone.trim(), purpose: "signup" };
 
-  if (!requestBody.mobile) {
+  if (!requestBody.phoneNumber) {
     throw new Error('Phone number is required.');
   }
 
@@ -325,11 +339,12 @@ export async function sendSignupOtp(payload: { phone: string }): Promise<string>
 
 export async function verifySignupOtp(payload: { phone: string; otp: string }): Promise<string> {
   const requestBody = {
-    mobile: payload.phone.trim(),
+    phoneNumber: payload.phone.trim(),
     otp: payload.otp.trim(),
+    purpose: "signup"
   };
 
-  if (!requestBody.mobile || !requestBody.otp) {
+  if (!requestBody.phoneNumber || !requestBody.otp) {
     throw new Error('Phone number and OTP are required.');
   }
 
@@ -359,20 +374,21 @@ export async function verifySignupOtp(payload: { phone: string; otp: string }): 
 
 export async function requestPasswordResetOtp(payload: ForgotPasswordPayload): Promise<string> {
   const requestBody = {
-    mobile: payload.mobile.trim(),
+    phoneNumber: payload.mobile.trim(),
+    purpose: 'forgot_password',
   };
 
-  if (!requestBody.mobile) {
+  if (!requestBody.phoneNumber) {
     throw new Error('Mobile number is required.');
   }
 
   console.log('Forgot password request:', {
-    url: `${baseURL}/auth/forgot-password`,
+    url: `${baseURL}/auth/send-otp`,
     body: requestBody,
   });
 
   try {
-    const { data } = await api.post<AuthMessageResponse>('/auth/forgot-password', requestBody);
+    const { data } = await api.post<AuthMessageResponse>('/auth/send-otp', requestBody);
     console.log('Forgot password response:', data);
     return data.message || 'OTP sent successfully.';
   } catch (error) {
@@ -382,7 +398,7 @@ export async function requestPasswordResetOtp(payload: ForgotPasswordPayload): P
         code: error.code,
         status: error.response?.status,
         data: error.response?.data,
-        url: `${baseURL}/auth/forgot-password`,
+        url: `${baseURL}/auth/send-otp`,
       });
     }
 
@@ -392,21 +408,22 @@ export async function requestPasswordResetOtp(payload: ForgotPasswordPayload): P
 
 export async function verifyPasswordResetOtp(payload: VerifyResetOtpPayload): Promise<string> {
   const requestBody = {
-    mobile: payload.mobile.trim(),
+    phoneNumber: payload.mobile.trim(),
     otp: payload.otp.trim(),
+    purpose: 'forgot_password',
   };
 
-  if (!requestBody.mobile || !requestBody.otp) {
+  if (!requestBody.phoneNumber || !requestBody.otp) {
     throw new Error('Mobile number and OTP are required.');
   }
 
   console.log('Verify reset OTP request:', {
-    url: `${baseURL}/auth/verify-reset-otp`,
+    url: `${baseURL}/auth/verify-otp`,
     body: requestBody,
   });
 
   try {
-    const { data } = await api.post<AuthMessageResponse>('/auth/verify-reset-otp', requestBody);
+    const { data } = await api.post<AuthMessageResponse>('/auth/verify-otp', requestBody);
     console.log('Verify reset OTP response:', data);
     return data.message || 'OTP verified successfully.';
   } catch (error) {
@@ -416,7 +433,7 @@ export async function verifyPasswordResetOtp(payload: VerifyResetOtpPayload): Pr
         code: error.code,
         status: error.response?.status,
         data: error.response?.data,
-        url: `${baseURL}/auth/verify-reset-otp`,
+        url: `${baseURL}/auth/verify-otp`,
       });
     }
 
@@ -426,27 +443,27 @@ export async function verifyPasswordResetOtp(payload: VerifyResetOtpPayload): Pr
 
 type EditAgentDetailsPayload = {
   agent_id: number;
-  full_name: string;
+  fullName: string;
   email: string;
-  phone_number: string;
+  phoneNumber: string;
 };
 
 type EditAgentDetailsResponse = {
-  ok: boolean;
+  success: boolean;
   message: string;
-  data: AuthApiAgent;
+  data: { agent: AuthApiAgent };
 };
 
 export async function editAgentDetails(payload: EditAgentDetailsPayload): Promise<AuthUser> {
   console.log('Edit agent details request:', {
-    url: `${baseURL}/agent/details/edit`,
+    url: `${baseURL}/profile/details`,
     body: payload,
   });
 
   try {
-    const { data } = await api.put<EditAgentDetailsResponse>('/agent/details/edit', payload);
+    const { data } = await api.patch<EditAgentDetailsResponse>('/profile/details', payload);
     console.log('Edit agent details response:', data);
-    return mapAgentToAuthUser(data.data);
+    return mapAgentToAuthUser(data.data.agent);
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.log('Edit agent details error:', {
@@ -454,7 +471,7 @@ export async function editAgentDetails(payload: EditAgentDetailsPayload): Promis
         code: error.code,
         status: error.response?.status,
         data: error.response?.data,
-        url: `${baseURL}/agent/details/edit`,
+        url: `${baseURL}/profile/details`,
       });
     }
     throw new Error(getAuthErrorMessage(error, 'Failed to update profile. Please try again.'));
@@ -462,10 +479,9 @@ export async function editAgentDetails(payload: EditAgentDetailsPayload): Promis
 }
 
 type EditProfilePicResponse = {
-  ok: boolean;
+  success: boolean;
   message: string;
-  agent?: AuthApiAgent;
-  data?: AuthApiAgent;
+  data: { agent: AuthApiAgent };
 };
 
 export async function editAgentProfilePic(agentId: number, imageUri: string): Promise<AuthUser> {
@@ -476,14 +492,14 @@ export async function editAgentProfilePic(agentId: number, imageUri: string): Pr
   formData.append('profile_pic', { uri: imageUri, name: filename, type: `image/${ext}` } as unknown as Blob);
   formData.append('agent_id', String(agentId));
 
-  console.log('Edit profile pic request:', { url: `${baseURL}/agent/profile-pic/edit`, agentId });
+  console.log('Edit profile pic request:', { url: `${baseURL}/profile/photo`, agentId });
 
   try {
-    const { data } = await api.put<EditProfilePicResponse>('/agent/profile-pic/edit', formData, {
+    const { data } = await api.patch<EditProfilePicResponse>('/profile/photo', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     console.log('Edit profile pic response:', data);
-    const agent = data.agent ?? data.data;
+    const agent = data.data?.agent;
     if (!agent) throw new Error('Invalid response from server.');
     return mapAgentToAuthUser(agent);
   } catch (error) {
