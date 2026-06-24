@@ -1,15 +1,15 @@
-import type { QuoteResponse } from '@/types/quote';
+import type { StoredQuoteResult } from '@/types/quote';
 
-let latestQuoteResult: QuoteResponse | null = null;
+let storedQuote: StoredQuoteResult | null = null;
 
-export function setLatestQuoteResult(result: QuoteResponse) {
-  latestQuoteResult = result;
+export function setLatestQuoteResult(result: StoredQuoteResult) {
+  storedQuote = result;
 }
 
 export function getLatestQuoteResult() {
-  return latestQuoteResult;
+  return storedQuote;
 }
 
 export function clearLatestQuoteResult() {
-  latestQuoteResult = null;
+  storedQuote = null;
 }

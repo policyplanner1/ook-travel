@@ -1,8 +1,11 @@
 import { router } from 'expo-router';
 import { ChevronDown, ChevronUp, CircleHelp, Headphones, Images, Mail, MessageCircleMore, Phone, UserRound } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { api } from '@/services/api';
+import { useAuth } from '@/store/auth';
 
 const faqs = [
   {
@@ -32,26 +35,11 @@ const faqs = [
   },
 ] as const;
 
-const supportOptions = [
-  {
-    title: 'Call Support',
-    description: '+91 7218452626',
-    icon: Phone,
-    action: 'tel:+917218452626',
-  },
-  {
-    title: 'Email Us',
-    description: 'maapranaam@gmail.com',
-    icon: Mail,
-    action: 'mailto:maapranaam@gmail.com',
-  },
-  {
-    title: 'WhatsApp Help',
-    description: 'Chat with our assistance team',
-    icon: MessageCircleMore,
-    action: 'https://wa.me/917218452626',
-  },
-] as const;
+const DEFAULT_PHONE = '+91 7218452626';
+const DEFAULT_PHONE_DIGITS = '917218452626';
+const DEFAULT_EMAIL = 'maapranaam@gmail.com';
+
+type RmContact = { full_name: string; mobile: string; email: string } | null;
 
 function FAQItem({
   index,
@@ -86,6 +74,43 @@ function FAQItem({
 }
 
 export default function HelpScreen() {
+  const { user } = useAuth();
+  const [rmContact, setRmContact] = useState<RmContact>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    api.get<{ ok: boolean; data: RmContact }>(`/profile/rm/${user.id}`)
+      .then((res) => { if (res.data.ok) setRmContact(res.data.data); })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const phone = rmContact?.mobile ?? DEFAULT_PHONE;
+  const phoneDigits = rmContact?.mobile
+    ? rmContact.mobile.replace(/\D/g, '').replace(/^0/, '91')
+    : DEFAULT_PHONE_DIGITS;
+  const email = rmContact?.email ?? DEFAULT_EMAIL;
+
+  const supportOptions = [
+    {
+      title: 'Call Support',
+      description: rmContact ? `${rmContact.full_name} — ${phone}` : phone,
+      icon: Phone,
+      action: `tel:+${phoneDigits}`,
+    },
+    {
+      title: 'Email Us',
+      description: email,
+      icon: Mail,
+      action: `mailto:${email}`,
+    },
+    {
+      title: 'WhatsApp Help',
+      description: 'Chat with your Relationship Manager',
+      icon: MessageCircleMore,
+      action: `https://wa.me/${phoneDigits}`,
+    },
+  ];
+
   async function handleOpen(url: string) {
     try {
       await Linking.openURL(url);

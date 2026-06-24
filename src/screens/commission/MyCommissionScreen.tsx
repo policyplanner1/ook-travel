@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { getAgentCommissionSummary } from '@/services/commission.service';
 import { getAllIssuedPolicies } from '@/services/policy.service';
 import { useAuth } from '@/store/auth';
-import type { IssuedPolicyRecord } from '@/types/quote';
+import type { CommissionSummary, IssuedPolicyRecord } from '@/types/quote';
 
 type CommissionRange = 'quarterly' | 'halfYearly' | 'yearly';
 type CommissionPoint = {
@@ -50,6 +51,7 @@ export default function MyCommissionScreen() {
   const [activeRange, setActiveRange] = useState<CommissionRange>('quarterly');
   const [tabContainerWidth, setTabContainerWidth] = useState(0);
   const [policies, setPolicies] = useState<IssuedPolicyRecord[]>([]);
+  const [backendSummary, setBackendSummary] = useState<CommissionSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const activeIndex = rangeTabs.findIndex((tab) => tab.value === activeRange);
@@ -63,18 +65,22 @@ export default function MyCommissionScreen() {
 
     let isMounted = true;
 
-    async function loadPolicies() {
+    async function loadData() {
       try {
         setIsLoading(true);
         setErrorMessage('');
 
-        const response = await getAllIssuedPolicies(user!.id);
+        const [policiesResponse, summaryResponse] = await Promise.all([
+          getAllIssuedPolicies(user!.id),
+          getAgentCommissionSummary(user!.id),
+        ]);
 
         if (!isMounted) {
           return;
         }
 
-        setPolicies(response.data ?? []);
+        setPolicies(policiesResponse.data ?? []);
+        setBackendSummary(summaryResponse.data ?? null);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -84,6 +90,7 @@ export default function MyCommissionScreen() {
           error instanceof Error ? error.message : 'Unable to load commission data right now.';
         setErrorMessage(message);
         setPolicies([]);
+        setBackendSummary(null);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -91,7 +98,7 @@ export default function MyCommissionScreen() {
       }
     }
 
-    loadPolicies();
+    loadData();
 
     return () => {
       isMounted = false;
@@ -99,7 +106,16 @@ export default function MyCommissionScreen() {
   }, [isFocused]);
 
   const yearlyBreakdown = useMemo(() => buildYearlyBreakdown(policies), [policies]);
-  const commissionSummary = useMemo(() => buildCommissionSummary(policies), [policies]);
+  const localSummary = useMemo(() => buildCommissionSummary(policies), [policies]);
+  const commissionSummary = backendSummary
+    ? {
+        earnings:   Number(backendSummary.commission_earned),
+        totalSales: Number(backendSummary.total_premium),
+        thisMonth:  localSummary.thisMonth,
+        paid:       Number(backendSummary.paid_amount),
+        pending:    Number(backendSummary.pending_amount),
+      }
+    : { ...localSummary, paid: 0, pending: localSummary.earnings };
 
   const activeData = useMemo(
     () =>
@@ -182,16 +198,21 @@ export default function MyCommissionScreen() {
               Your Commission Earnings
             </Text>
 
-            <View className="mt-2 flex-row items-center">
+            {/* <View className="mt-2 flex-row items-center">
               <IndianRupee size={28} color="#000" strokeWidth={2.4} />
               <Text className="ml-2 text-4xl font-extrabold">
                 {currencyFormatter.format(isLoading ? 0 : commissionSummary.earnings)}
               </Text>
-            </View>
+            </View> */}
 
             <View className="mt-6 flex-row gap-4">
               <SummaryCard title="This Month" value={isLoading ? 0 : commissionSummary.thisMonth} />
               <SummaryCard title="Total Sales" value={isLoading ? 0 : commissionSummary.totalSales} />
+            </View>
+
+            <View className="mt-4 flex-row gap-4">
+              <SummaryCard title="Paid" value={isLoading ? 0 : commissionSummary.paid} color="#065F46" />
+              <SummaryCard title="Pending" value={isLoading ? 0 : commissionSummary.pending} color="#92400E" />
             </View>
           </View>
 
@@ -384,14 +405,16 @@ function parsePremium(premium: string | number) {
 function SummaryCard({
   title,
   value,
+  color = '#0C4A6E',
 }: {
   title: string;
   value: number;
+  color?: string;
 }) {
   return (
     <View className="flex-1 rounded-xl bg-white px-4 py-4" style={styles.summaryCardShadow}>
       <Text className="text-sm font-bold uppercase tracking-[1.2px] text-slate-500">{title}</Text>
-      <Text className="mt-3 text-2xl font-extrabold text-sky-950">
+      <Text className="mt-3 text-2xl font-extrabold" style={{ color }}>
         Rs. {currencyFormatter.format(value)}
       </Text>
     </View>

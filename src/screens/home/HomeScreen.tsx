@@ -1,6 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
-import { FileText, Power, Upload, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -19,13 +18,13 @@ import {
 import type { DateData } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BulkQuoteStepTwo, type BulkFormOpenPanel, type BulkTravelForm } from '@/components/forms/BulkQuoteStepTwo';
+import { BulkQuoteStepOne } from '@/components/forms/BulkQuoteStepOne';
+import { BulkQuoteStepTwo } from '@/components/forms/BulkQuoteStepTwo';
 import { QuoteStepOne } from '@/components/forms/QuoteStepOne';
 import { QuoteStepTwo } from '@/components/forms/QuoteStepTwo';
 import { benefits, cities } from '@/constants/quote';
 import { fetchCkycDetails } from '@/services/ckyc.service';
 import { fetchCityStateByPincode } from '@/services/pincode.service';
-import { submitBulkInsuranceUpload } from '@/services/policy.service';
 import { submitQuote } from '@/services/quote.service';
 import { useAuth } from '@/store/auth';
 import { setLatestQuoteResult } from '@/store/quote-result';
@@ -67,32 +66,19 @@ const initialCustomerForm: CustomerDetailsFormData = {
   nomineeName: '',
 };
 
-const initialBulkForm: BulkTravelForm = {
-  startDate: null,
-  endDate: null,
-  name: '',
-  email: '',
-  phone: '',
-  travellers: { Adults: 1, Children: 0, Seniors: 0 },
-};
-
 const allowedBulkDocumentTypes = [
-  'application/pdf',
   'text/csv',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
+  'application/octet-stream',
+  'application/csv',
+  'text/plain',
 ];
 
-const allowedBulkDocumentExtensions = ['pdf', 'csv', 'xls', 'xlsx', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
+const allowedBulkDocumentExtensions = ['csv', 'xls', 'xlsx'];
 
 export default function HomeScreen() {
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
   const scrollViewRef = useRef<ScrollView>(null);
   const fieldPositionsRef = useRef<Partial<Record<keyof CustomerDetailsFormData, number>>>({});
   const [step, setStep] = useState<1 | 2>(1);
@@ -101,8 +87,6 @@ export default function HomeScreen() {
   const [travelForm, setTravelForm] = useState<TravelQuoteFormData>(initialTravelForm);
   const [customerForm, setCustomerForm] = useState<CustomerDetailsFormData>(initialCustomerForm);
   const [bulkDocument, setBulkDocument] = useState<BulkUploadDocument | null>(null);
-  const [bulkForm, setBulkForm] = useState<BulkTravelForm>(initialBulkForm);
-  const [openBulkPanel, setOpenBulkPanel] = useState<BulkFormOpenPanel>(null);
   const [ckycData, setCkycData] = useState<CkycLookupResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickingBulkDocument, setIsPickingBulkDocument] = useState(false);
@@ -196,53 +180,23 @@ export default function HomeScreen() {
     setInsuranceRequestType(nextType);
     setStep(1);
     setOpenPanel(null);
-    setOpenBulkPanel(null);
     setHasAcceptedPrivacyPolicy(false);
     setCkycData(null);
 
     if (nextType === 'individual') {
       setBulkDocument(null);
-      setBulkForm(initialBulkForm);
       return;
     }
 
     setCustomerForm(initialCustomerForm);
   }
 
-  function toggleBulkPanel(panel: Exclude<BulkFormOpenPanel, null>) {
-    setOpenBulkPanel((current) => (current === panel ? null : panel));
-  }
-
-  function onBulkDayPress(day: import('react-native-calendars').DateData) {
-    const selected = day.dateString;
-    setBulkForm((current) => {
-      if (!current.startDate) {
-        return { ...current, startDate: selected, endDate: selected };
-      }
-      if (current.endDate && current.startDate === current.endDate && selected > current.startDate) {
-        return { ...current, endDate: selected };
-      }
-      if (selected < current.startDate) {
-        return { ...current, startDate: selected, endDate: selected };
-      }
-      if (!current.endDate || selected >= current.startDate) {
-        return { ...current, endDate: selected };
-      }
-      return { ...current, startDate: selected, endDate: selected };
-    });
-  }
-
-  function onBulkChangeTraveller(type: import('@/types/quote').TravelerType, delta: number) {
-    setBulkForm((current) => ({
-      ...current,
-      travellers: {
-        ...current.travellers,
-        [type]: Math.max(type === 'Adults' ? 1 : 0, current.travellers[type] + delta),
-      },
-    }));
-  }
-
   function handleBulkGoToStep2() {
+    if (!bulkDocument) {
+      Alert.alert('File required', 'Please upload a CSV or Excel file with traveller details.');
+      return;
+    }
+    setOpenPanel(null);
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     setStep(2);
   }
@@ -283,7 +237,7 @@ export default function HomeScreen() {
       if (!isAllowedBulkDocument(selectedFileName, selectedFile.mimeType ?? null)) {
         Alert.alert(
           'Unsupported file',
-          'Please upload a PDF, CSV, Excel, Word document, or image for bulk insurance.'
+          'Please upload a CSV or Excel file (.csv, .xls, .xlsx) with traveller details.'
         );
         return;
       }
@@ -383,6 +337,19 @@ export default function HomeScreen() {
             return;
           }
 
+          const fullName = response.ckycResponse.fullName?.trim();
+
+          if (!fullName) {
+            lastCkycLookupKeyRef.current = '';
+            setCkycData(null);
+            setCustomerForm((current) => ({ ...current, panNo, dob, phone, name: '' }));
+            Alert.alert(
+              'CKYC Not Completed',
+              'Your CKYC verification is not done. Please complete your CKYC before proceeding.'
+            );
+            return;
+          }
+
           lastCkycLookupKeyRef.current = lookupKey;
           setCkycData(response);
 
@@ -391,7 +358,7 @@ export default function HomeScreen() {
             panNo,
             dob,
             phone,
-            name: response.ckycResponse.fullName?.trim() || current.name,
+            name: fullName,
           }));
         } catch (error) {
           if (ckycLookupRef.current !== requestId) {
@@ -495,12 +462,29 @@ export default function HomeScreen() {
       setIsSubmitting(true);
 
       const response = await submitQuote({ ...travelForm, ...customerForm }, ckycData);
-      setLatestQuoteResult(response);
+
+      const totalTravellers = Object.values(travelForm.travellers).reduce((s, n) => s + n, 0);
+
+      setLatestQuoteResult({
+        quoteResponse: response,
+        formData: { ...travelForm, ...customerForm },
+        planType: insuranceRequestType,
+        totalTravellers,
+        bulkDocument:
+          insuranceRequestType === 'bulk' && bulkDocument
+            ? {
+                uri: bulkDocument.uri,
+                name: bulkDocument.name,
+                mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+              }
+            : null,
+      });
 
       setStep(1);
       setOpenPanel(null);
       setTravelForm(initialTravelForm);
       setCustomerForm(initialCustomerForm);
+      setBulkDocument(null);
       setCkycData(null);
       setHasAcceptedPrivacyPolicy(false);
       router.push('/quote');
@@ -519,49 +503,97 @@ export default function HomeScreen() {
   }
 
   async function handleBulkSubmit() {
-    if (!bulkDocument) {
-      Alert.alert('Document required', 'Please upload a bulk insurance document before submitting.');
+    if (!hasAcceptedPrivacyPolicy) {
+      Alert.alert('Consent required', 'Please accept the data Privacy policy before submitting.');
+      return;
+    }
+
+    const { panNo, dob, phone, name, email } = customerForm;
+    if (!panNo.trim() || !dob.trim() || !phone.trim() || !name.trim() || !email.trim()) {
+      Alert.alert('Incomplete form', 'Please fill all required details before submitting.');
+      return;
+    }
+
+    if (!travelForm.startDate || !travelForm.endDate) {
+      Alert.alert('Dates required', 'Please select travel dates before submitting.');
+      return;
+    }
+
+    if (isFetchingCkyc) {
+      Alert.alert('Please wait', 'CKYC verification is in progress. Please wait before submitting.');
+      return;
+    }
+
+    if (!ckycData) {
+      Alert.alert('Verification required', 'CKYC verification failed or is incomplete. Please check your PAN, DOB, and phone number.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const response = await submitBulkInsuranceUpload({
-        agent_id: user?.id,
-        file: {
-          uri: bulkDocument.uri,
-          name: bulkDocument.name,
-          type: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
-        },
+
+      const bulkFormData = {
+        ...travelForm,
+        ...customerForm,
+        gender: 'Male',
+        maritalStatus: 'Single',
+        pinCode: '400001',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        streetName: 'NA',
+        nomineeName: name.trim() || 'Self',
+      };
+
+      const response = await submitQuote(bulkFormData, ckycData);
+
+      const totalTravellers = Object.values(travelForm.travellers).reduce((s, n) => s + n, 0);
+
+      setLatestQuoteResult({
+        quoteResponse: response,
+        formData: bulkFormData,
+        planType: 'bulk',
+        totalTravellers,
+        bulkDocument: bulkDocument
+          ? {
+              uri: bulkDocument.uri,
+              name: bulkDocument.name,
+              mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+            }
+          : null,
       });
 
-      Alert.alert(
-        'Bulk request submitted',
-        typeof response.message === 'string' && response.message.trim()
-          ? response.message
-          : 'The file and agent details were sent successfully.'
-      );
-
-      setBulkDocument(null);
+      setStep(1);
       setOpenPanel(null);
+      setTravelForm(initialTravelForm);
+      setCustomerForm(initialCustomerForm);
+      setBulkDocument(null);
+      setCkycData(null);
+      setHasAcceptedPrivacyPolicy(false);
+      router.push('/quote');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to submit the quote right now. Please try again.';
+      Alert.alert('Submission failed', message);
     } finally {
       setIsSubmitting(false);
     }
   }
-
-  function handleLogout() {
-    Alert.alert('Logout', 'Do you want to logout from this session?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: () => {
-          logout();
-          router.replace('/login');
-        },
-      },
-    ]);
-  }
+ 
+  // function handleLogout() {
+  //   Alert.alert('Logout', 'Do you want to logout from this session?', [
+  //     { text: 'Cancel', style: 'cancel' },
+  //     {
+  //       text: 'Logout',
+  //       style: 'destructive',
+  //       onPress: () => {
+  //         logout();
+  //         router.replace('/login');
+  //       },
+  //     },
+  //   ]);
+  // }
 
   return (
     <ImageBackground
@@ -576,7 +608,7 @@ export default function HomeScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
         >
-          <View className="absolute left-5 top-8 z-10">
+          {/* <View className="absolute left-5 top-8 z-10">
             <Pressable
               onPress={handleLogout}
               className="h-12 w-12 items-center justify-center rounded-2xl "
@@ -584,7 +616,7 @@ export default function HomeScreen() {
             >
               <Power size={22} color="#d1001f" strokeWidth={2.4} />
             </Pressable>
-          </View>
+          </View> */}
 
           <ScrollView
             ref={scrollViewRef}
@@ -600,8 +632,11 @@ export default function HomeScreen() {
                   <Image
                     source={require('../../../assets/images/ooktravel.png')}
                     resizeMode="contain"
-                    className="mb-4 h-20 w-52"
+                    className="mb-1 h-20 w-52"
                   />
+                  <Text className="mb-4 text-xs font-bold uppercase tracking-widest text-sky-800">
+                    Maa Pranaam Fortune LLP
+                  </Text>
                   <Text className="text-3xl font-semibold tracking-[2px] text-sky-950">Book Your</Text>
                   <Text
                     className="mt-2 text-center text-6xl font-extrabold leading-[54px] tracking-[2px] text-white"
@@ -692,87 +727,28 @@ export default function HomeScreen() {
                       onNext={goToDetailsStep}
                     />
                   ) : (
-                    <>
-                      <View className="rounded-3xl border border-dashed border-orange-300 bg-orange-50 px-4 py-4">
-                        <View className="flex-row items-start">
-                          <View className="mr-3 mt-1 h-11 w-11 items-center justify-center rounded-2xl bg-white">
-                            <Upload size={22} color="#EA580C" strokeWidth={2.3} />
-                          </View>
-                          <View className="flex-1">
-                            <Text className="text-lg font-extrabold text-sky-950">
-                              Upload Bulk Insurance File
-                            </Text>
-                            <Text className="mt-1 text-sm leading-6 text-slate-600">
-                              Upload one file with traveller details. Supported formats: PDF, CSV,
-                              Excel, Word, and images.
-                            </Text>
-                          </View>
-                        </View>
-
-                        <Pressable
-                          onPress={handlePickBulkDocument}
-                          className="mt-4 rounded-2xl bg-orange-500 px-4 py-4"
-                          style={styles.buttonShadow}
-                          disabled={isPickingBulkDocument}
-                        >
-                          <Text className="text-center text-base font-extrabold text-white">
-                            {isPickingBulkDocument
-                              ? 'Opening files...'
-                              : bulkDocument
-                                ? 'Replace Document'
-                                : 'Choose Document'}
-                          </Text>
-                        </Pressable>
-
-                        {bulkDocument ? (
-                          <View className="mt-4 rounded-2xl bg-white px-4 py-4" style={styles.fieldShadow}>
-                            <View className="flex-row items-start">
-                              <View className="mr-3 mt-0.5 h-10 w-10 items-center justify-center rounded-2xl bg-sky-100">
-                                <FileText size={20} color="#0C4A6E" strokeWidth={2.2} />
-                              </View>
-                              <View className="flex-1">
-                                <Text className="text-base font-bold text-slate-800">
-                                  {bulkDocument.name}
-                                </Text>
-                                <Text className="mt-1 text-sm text-slate-500">
-                                  {formatFileSize(bulkDocument.size)}
-                                </Text>
-                              </View>
-                              <Pressable
-                                onPress={removeBulkDocument}
-                                className="ml-3 h-9 w-9 items-center justify-center rounded-full bg-slate-100"
-                              >
-                                <X size={18} color="#475569" strokeWidth={2.4} />
-                              </Pressable>
-                            </View>
-                          </View>
-                        ) : (
-                          <Text className="mt-3 text-sm font-medium text-slate-500">
-                            No file selected yet.
-                          </Text>
-                        )}
-
-                        <Pressable
-                          className="mt-5 h-14 items-center justify-center rounded-2xl bg-orange-500"
-                          style={styles.buttonShadow}
-                          onPress={handleBulkGoToStep2}
-                        >
-                          <Text className="text-lg font-extrabold text-white">Next</Text>
-                        </Pressable>
-                      </View>
-                    </>
+                    <BulkQuoteStepOne
+                      document={bulkDocument}
+                      isPickingDocument={isPickingBulkDocument}
+                      onPickDocument={handlePickBulkDocument}
+                      onRemoveDocument={removeBulkDocument}
+                      onNext={handleBulkGoToStep2}
+                      styles={{ fieldShadow: styles.fieldShadow, buttonShadow: styles.buttonShadow }}
+                    />
                   )
                 ) : insuranceRequestType === 'bulk' ? (
                   <BulkQuoteStepTwo
-                    form={bulkForm}
-                    openPanel={openBulkPanel}
-                    onTogglePanel={toggleBulkPanel}
-                    onDayPress={onBulkDayPress}
-                    onChangeTraveller={onBulkChangeTraveller}
-                    onChangeName={(value) => setBulkForm((c) => ({ ...c, name: value }))}
-                    onChangeEmail={(value) => setBulkForm((c) => ({ ...c, email: value }))}
-                    onChangePhone={(value) =>
-                      setBulkForm((c) => ({ ...c, phone: value.replace(/\D/g, '').slice(0, 10) }))
+                    form={customerForm}
+                    travelForm={travelForm}
+                    onChange={handleCustomerChange}
+                    openPanel={openPanel}
+                    onTogglePanel={togglePanel}
+                    onDayPress={onDayPress}
+                    onChangeTraveller={changeTraveller}
+                    isFetchingCkyc={isFetchingCkyc}
+                    hasAcceptedPrivacyPolicy={hasAcceptedPrivacyPolicy}
+                    onTogglePrivacyPolicy={() =>
+                      setHasAcceptedPrivacyPolicy((current) => !current)
                     }
                     onBack={() => setStep(1)}
                     onSubmit={handleBulkSubmit}
@@ -849,43 +825,13 @@ function isAllowedBulkDocument(fileName: string, mimeType: string | null) {
   );
 }
 
-function formatFileSize(size: number | null) {
-  if (!size || size <= 0) {
-    return 'File selected';
-  }
-
-  if (size < 1024 * 1024) {
-    return `${Math.max(1, Math.round(size / 1024))} KB`;
-  }
-
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function getMimeTypeFromFileName(fileName: string) {
   const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
-
   switch (extension) {
-    case 'pdf':
-      return 'application/pdf';
-    case 'csv':
-      return 'text/csv';
-    case 'xls':
-      return 'application/vnd.ms-excel';
-    case 'xlsx':
-      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    case 'doc':
-      return 'application/msword';
-    case 'docx':
-      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg';
-    case 'png':
-      return 'image/png';
-    case 'webp':
-      return 'image/webp';
-    default:
-      return 'application/octet-stream';
+    case 'csv':  return 'text/csv';
+    case 'xls':  return 'application/vnd.ms-excel';
+    case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    default:     return 'application/octet-stream';
   }
 }
 
