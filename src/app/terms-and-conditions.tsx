@@ -1,1 +1,1 @@
-export { default } from '@/screens/legal/LegalDocumentScreen';
+export { TermsAndConditionsScreen as default } from '@/screens/legal/LegalDocumentScreen';

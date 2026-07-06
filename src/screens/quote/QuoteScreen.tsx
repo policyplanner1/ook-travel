@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ArrowLeft, ExternalLink, MapPin, ShieldCheck, Ticket, UserRound} from 'lucide-react-native';
+import { ArrowLeft, ExternalLink, MapPin, ShieldCheck, Star, Ticket, UserRound} from 'lucide-react-native';
 import React, { type ReactNode } from 'react';
 import { ActivityIndicator, Alert, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -67,20 +67,28 @@ export default function QuoteScreen() {
     );
   }
 
-  const { quoteResponse, formData, planType, totalTravellers, bulkDocument } = stored;
-  const partner = quoteResponse.proposalResponse.pTrvPartnerDtls_inout;
-  const policy = quoteResponse.proposalResponse.pTrvPolDtls_inout;
+  const { quoteResponse, staticQuoteResponse, formData, planType, totalTravellers, bulkDocument, mode } = stored;
+  const isStatic = mode === 'static';
 
   const PLATFORM_FEE = 50;
-  const basePremium = Number(quoteResponse.premiumAmount) || 0;
+  const basePremium = isStatic
+    ? (staticQuoteResponse?.details.premium ?? 0)
+    : (Number(quoteResponse?.premiumAmount) || 0);
   const numTravellers = planType === 'bulk' ? (totalTravellers ?? 1) : 1;
   const totalPremium = basePremium * numTravellers + PLATFORM_FEE;
 
-  const fullName = [partner.title, partner.firstname, partner.middlename, partner.lastname]
-    .filter(Boolean)
-    .join(' ');
+  const partner = !isStatic
+    ? (quoteResponse?.proposalResponse?.pTrvPartnerDtls_inout ?? {} as Partial<import('@/types/quote').ProposalPartnerDetails>)
+    : {} as Partial<import('@/types/quote').ProposalPartnerDetails>;
+  const policy = !isStatic
+    ? (quoteResponse?.proposalResponse?.pTrvPolDtls_inout ?? {} as Partial<import('@/types/quote').ProposalPolicyDetails>)
+    : {} as Partial<import('@/types/quote').ProposalPolicyDetails>;
 
-  const traveller_details = {
+  const fullName = isStatic
+    ? formData.name
+    : [partner.title, partner.firstname, partner.middlename, partner.lastname].filter(Boolean).join(' ');
+
+  const traveller_details = !isStatic ? {
     panNo:         formData.panNo,
     dob:           formData.dob,
     gender:        formData.gender,
@@ -97,8 +105,8 @@ export default function QuoteScreen() {
     startDate:     formData.startDate,
     endDate:       formData.endDate,
     travellers:    formData.travellers,
-    proposalResponse: quoteResponse.proposalResponse,
-  };
+    proposalResponse: quoteResponse!.proposalResponse,
+  } : null;
 
   async function submitPolicyRequest() {
     if (!user) return;
@@ -106,10 +114,12 @@ export default function QuoteScreen() {
 
     try {
       if (planType === 'bulk' && bulkDocument) {
+        const travelDate = formData.startDate ?? parseDateToISO(policy.fromDate ?? '');
+        const returnDate = formData.endDate   ?? parseDateToISO(policy.toDate ?? '');
         await submitBulkInsuranceUpload({
           agent_id:          user.id,
-          travel_date:       formData.startDate ?? parseDateToISO(policy.fromDate),
-          return_date:       formData.endDate   ?? parseDateToISO(policy.toDate),
+          travel_date:       travelDate,
+          return_date:       returnDate,
           num_travelers:     numTravellers,
           estimated_premium: basePremium,
           payment_amount:    totalPremium,
@@ -118,7 +128,9 @@ export default function QuoteScreen() {
           phone:             formData.phone,
           name:              fullName,
           email:             formData.email,
-          proposal_response: JSON.stringify(quoteResponse.proposalResponse),
+          proposal_response: isStatic
+            ? JSON.stringify(staticQuoteResponse ?? {})
+            : JSON.stringify(quoteResponse?.proposalResponse ?? {}),
           file: {
             uri:  bulkDocument.uri,
             name: bulkDocument.name,
@@ -130,29 +142,48 @@ export default function QuoteScreen() {
           pathname: '/policy-issued',
           params: {
             travellerName: fullName,
-            startDate:     parseDateToISO(policy.fromDate),
-            endDate:       parseDateToISO(policy.toDate),
+            startDate:     travelDate,
+            endDate:       returnDate,
             premiumAmount: String(totalPremium),
           },
         });
-      } else {
-        const payload = {
+      } else if (isStatic) {
+        await api.post('/policy/requests', {
           agent_id:          user.id,
           plan_type:         planType,
-          traveller_details,
-          travel_date:       parseDateToISO(policy.fromDate),
-          return_date:       parseDateToISO(policy.toDate),
+          traveller_details: { ...formData },
+          travel_date:       formData.startDate ?? '',
+          return_date:       formData.endDate   ?? '',
           estimated_premium: basePremium,
           payment_amount:    totalPremium,
-        };
-        await api.post('/policy/requests', payload);
+        });
         clearLatestQuoteResult();
         router.replace({
           pathname: '/policy-issued',
           params: {
             travellerName: fullName,
-            startDate:     parseDateToISO(policy.fromDate),
-            endDate:       parseDateToISO(policy.toDate),
+            startDate:     formData.startDate ?? '',
+            endDate:       formData.endDate   ?? '',
+            premiumAmount: String(totalPremium),
+          },
+        });
+      } else {
+        await api.post('/policy/requests', {
+          agent_id:          user.id,
+          plan_type:         planType,
+          traveller_details,
+          travel_date:       parseDateToISO(policy.fromDate ?? ''),
+          return_date:       parseDateToISO(policy.toDate ?? ''),
+          estimated_premium: basePremium,
+          payment_amount:    totalPremium,
+        });
+        clearLatestQuoteResult();
+        router.replace({
+          pathname: '/policy-issued',
+          params: {
+            travellerName: fullName,
+            startDate:     parseDateToISO(policy.fromDate ?? ''),
+            endDate:       parseDateToISO(policy.toDate ?? ''),
             premiumAmount: String(totalPremium),
           },
         });
@@ -211,7 +242,9 @@ export default function QuoteScreen() {
                     )}
                   </View>
                   <Text className="mt-2 text-sm font-medium text-slate-600">
-                    {policy.travelplan} for {policy.areaplan}
+                    {isStatic
+                      ? staticQuoteResponse?.product
+                      : `${policy.travelplan} for ${policy.areaplan}`}
                   </Text>
                 </View>
 
@@ -243,18 +276,51 @@ export default function QuoteScreen() {
             </SectionCard>
 
             <SectionCard title="Policy Details" icon={<Ticket size={22} color="#0C4A6E" strokeWidth={2.2} />}>
-              <DetailRow label="Request ID"       value={policy.requestid} />
-              <DetailRow label="Policy reference" value={quoteResponse.proposalResponse.pRequestid_out} />
-              <DetailRow label="Travel dates"     value={`${policy.fromDate} to ${policy.toDate}`} />
-              <DetailRow label="Area plan"        value={policy.areaplan} />
-              <DetailRow label="Plan type"        value={planType} />
+              {isStatic ? (
+                <>
+                  <DetailRow label="Product"      value={staticQuoteResponse?.product} />
+                  <DetailRow label="No of days"   value={String(staticQuoteResponse?.no_of_days ?? '')} />
+                  <DetailRow label="Travel dates" value={`${formData.startDate ?? ''} to ${formData.endDate ?? ''}`} />
+                  <DetailRow label="Plan type"    value={planType} />
+                </>
+              ) : (
+                <>
+                  <DetailRow label="Request ID"       value={policy.requestid} />
+                  <DetailRow label="Policy reference" value={quoteResponse?.proposalResponse.pRequestid_out} />
+                  <DetailRow label="Travel dates"     value={`${policy.fromDate} to ${policy.toDate}`} />
+                  <DetailRow label="Area plan"        value={policy.areaplan} />
+                  <DetailRow label="Plan type"        value={planType} />
+                </>
+              )}
             </SectionCard>
 
-            <SectionCard title="Address" icon={<MapPin size={22} color="#0C4A6E" strokeWidth={2.2} />}>
-              <DetailRow label="Street"     value={formData.streetName} />
-              <DetailRow label="City / State" value={`${formData.city}, ${formData.state}`} />
-              <DetailRow label="PIN code"   value={formData.pinCode} />
-            </SectionCard>
+            {isStatic && staticQuoteResponse?.details ? (
+              <SectionCard title="Coverage Details" icon={<Star size={22} color="#0C4A6E" strokeWidth={2.2} />}>
+                <DetailRow label="Basic Coverage"                    value={`Rs. ${staticQuoteResponse.details.basic_coverage}`} />
+                <DetailRow label="Accidental Hospitalisation"        value={`Rs. ${staticQuoteResponse.details.accidental_hospitalization_expenses}`} />
+                <DetailRow label="Trip Cancellation"                 value={`Rs. ${staticQuoteResponse.details.trip_cancellation}`} />
+                <DetailRow label="Trip Curtailment"                  value={`Rs. ${staticQuoteResponse.details.trip_curtailment}`} />
+                <DetailRow label="Trip Delay"                        value={`Rs. ${staticQuoteResponse.details.trip_delay}`} />
+                <DetailRow label="Loss of Checked Baggage"           value={`Rs. ${staticQuoteResponse.details.loss_of_checked_baggage}`} />
+                <DetailRow label="Delay of Checked Baggage"          value={`Rs. ${staticQuoteResponse.details.delay_of_checked_baggage}`} />
+                <DetailRow label="Loss of Baggage"                   value={`Rs. ${staticQuoteResponse.details.loss_of_baggage}`} />
+                <DetailRow label="Personal Liability"                value={`Rs. ${staticQuoteResponse.details.personal_liability}`} />
+                <DetailRow label="Home Burglary Insurance"           value={`Rs. ${staticQuoteResponse.details.home_burglary_insurance}`} />
+                <DetailRow label="Emergency Hotel Extension"         value={`Rs. ${staticQuoteResponse.details.emergency_hotel_extension}`} />
+                <DetailRow label="Emergency Medical Evacuation"      value={`Rs. ${staticQuoteResponse.details.emergency_medical_evacuation}`} />
+                <DetailRow label="Bounced Hotel"                     value={`Rs. ${staticQuoteResponse.details.bounced_hotel}`} />
+                <DetailRow label="Hospitalisation Daily Allowance"   value={`Rs. ${staticQuoteResponse.details.hospitalization_daily_allowance}`} />
+                <DetailRow label="Track A Baggage"                   value={staticQuoteResponse.details.track_a_baggage_service} />
+              </SectionCard>
+            ) : null}
+
+            {!isStatic && (
+              <SectionCard title="Address" icon={<MapPin size={22} color="#0C4A6E" strokeWidth={2.2} />}>
+                <DetailRow label="Street"       value={formData.streetName} />
+                <DetailRow label="City / State" value={`${formData.city}, ${formData.state}`} />
+                <DetailRow label="PIN code"     value={formData.pinCode} />
+              </SectionCard>
+            )}
           </ScrollView>
         </View>
 

@@ -108,8 +108,8 @@ export type ProposalPolicyDetails = {
 };
 
 export type ProposalResponseData = {
-  pTrvPartnerDtls_inout: ProposalPartnerDetails;
-  pTrvPolDtls_inout: ProposalPolicyDetails;
+  pTrvPartnerDtls_inout: ProposalPartnerDetails | null;
+  pTrvPolDtls_inout: ProposalPolicyDetails | null;
   pRequestid_out: string;
   pErrorCode_out: string;
 };
@@ -121,7 +121,9 @@ export type QuoteResponse = {
 };
 
 export type StoredQuoteResult = {
-  quoteResponse: QuoteResponse;
+  mode: 'bajaj' | 'static';
+  quoteResponse?: QuoteResponse;
+  staticQuoteResponse?: StaticQuoteResponse;
   formData: TravelQuoteFormData & CustomerDetailsFormData;
   planType: 'individual' | 'bulk';
   totalTravellers?: number;
@@ -292,8 +294,6 @@ export type CommissionSummary = {
   email: string | null;
   total_premium: number;
   commission_earned: number;
-  paid_amount: number;
-  pending_amount: number;
 };
 
 export type CommissionSummaryResponse = {

@@ -44,6 +44,7 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+  const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [isOtpSending, setIsOtpSending] = useState(false);
@@ -92,8 +93,11 @@ export default function SignupScreen() {
   }, []);
 
   async function handleSendOtp() {
-    if (!hasAcceptedTerms) {
-      Alert.alert('Terms required', 'Please accept the Terms and Conditions to continue.');
+    if (!hasAcceptedTerms || !hasAcceptedPrivacy) {
+      Alert.alert(
+        'Agreement required',
+        'Please accept the Terms and Conditions and Privacy Policy to continue.'
+      );
       return;
     }
 
@@ -292,9 +296,34 @@ export default function SignupScreen() {
           </Pressable>
 
           <Pressable
+            onPress={() => setHasAcceptedPrivacy((current) => !current)}
+            className="mt-3 flex-row items-start"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: hasAcceptedPrivacy }}
+          >
+            <View
+              className={`mt-0.5 h-5 w-5 items-center justify-center rounded border ${
+                hasAcceptedPrivacy ? 'border-orange-500 bg-orange-500' : 'border-slate-400 bg-white'
+              }`}
+            >
+              {hasAcceptedPrivacy ? <Check color="#FFFFFF" size={14} strokeWidth={3} /> : null}
+            </View>
+            <Text className="ml-3 flex-1 text-[15px] leading-6 text-sky-950/80">
+              I agree to the{' '}
+              <Text
+                className="font-semibold text-sky-900"
+                onPress={() => router.push('/privacy-policy')}
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </Pressable>
+
+          <Pressable
             onPress={handleSendOtp}
-            disabled={isOtpSending || !hasAcceptedTerms}
-            className={`mt-5 rounded-[18px] px-5 py-4 ${isOtpSending || !hasAcceptedTerms ? 'bg-orange-300' : 'bg-orange-500'}`}
+            disabled={isOtpSending || !hasAcceptedTerms || !hasAcceptedPrivacy}
+            className={`mt-5 rounded-[18px] px-5 py-4 ${isOtpSending || !hasAcceptedTerms || !hasAcceptedPrivacy ? 'bg-orange-300' : 'bg-orange-500'}`}
             style={styles.buttonShadow}
           >
             <Text className="text-center text-[18px] font-extrabold text-white">

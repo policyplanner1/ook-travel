@@ -2,8 +2,8 @@ import axios from 'axios';
 
 const API_BASE_URLS = {
   // local: 'http://192.168.1.208:1200',
-  local: 'http://192.168.1.187:5000/api/app',
-  prod: 'https://policyplanner.com/travel-insurance',
+  local: 'http://192.168.1.159:5000/api/app',
+  prod: 'https://api.ooktravel.in/api/app',
 } as const;
 
 const CASHFREE_CHECKOUT_URLS = {

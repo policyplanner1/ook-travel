@@ -23,12 +23,19 @@ import { BulkQuoteStepTwo } from '@/components/forms/BulkQuoteStepTwo';
 import { QuoteStepOne } from '@/components/forms/QuoteStepOne';
 import { QuoteStepTwo } from '@/components/forms/QuoteStepTwo';
 import { benefits, cities } from '@/constants/quote';
+import { PREMIUM_MODE } from '@/constants/premium-mode';
 import { fetchCkycDetails } from '@/services/ckyc.service';
 import { fetchCityStateByPincode } from '@/services/pincode.service';
-import { submitQuote } from '@/services/quote.service';
+import { fetchBharatBhramanPremium, submitQuote } from '@/services/quote.service';
 import { useAuth } from '@/store/auth';
 import { setLatestQuoteResult } from '@/store/quote-result';
 import type { CkycLookupResponse, CustomerDetailsFormData, OpenPanel, TravelQuoteFormData, TravelerType } from '@/types/quote';
+
+function calcNoOfDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+}
 
 type InsuranceRequestType = 'individual' | 'bulk';
 
@@ -300,7 +307,7 @@ export default function HomeScreen() {
 
     setCustomerForm((current) => ({ ...current, [key]: normalizedValue as CustomerDetailsFormData[K] }));
 
-    if (key === 'panNo' || key === 'dob' || key === 'phone') {
+    if ((key === 'panNo' || key === 'dob' || key === 'phone') && PREMIUM_MODE === 'bajaj') {
       const nextForm = {
         ...customerForm,
         [key]: normalizedValue,
@@ -448,37 +455,59 @@ export default function HomeScreen() {
       return;
     }
 
-    if (isFetchingCkyc) {
-      Alert.alert('Please wait', 'CKYC verification is in progress. Please wait before submitting.');
-      return;
-    }
-
-    if (!ckycData) {
-      Alert.alert('Verification required', 'CKYC verification failed or is incomplete. Please check your PAN, DOB, and phone number.');
-      return;
+    if (PREMIUM_MODE === 'bajaj') {
+      if (isFetchingCkyc) {
+        Alert.alert('Please wait', 'CKYC verification is in progress. Please wait before submitting.');
+        return;
+      }
+      if (!ckycData) {
+        Alert.alert('Verification required', 'CKYC verification failed or is incomplete. Please check your PAN, DOB, and phone number.');
+        return;
+      }
     }
 
     try {
       setIsSubmitting(true);
 
-      const response = await submitQuote({ ...travelForm, ...customerForm }, ckycData);
-
       const totalTravellers = Object.values(travelForm.travellers).reduce((s, n) => s + n, 0);
+      const formData = { ...travelForm, ...customerForm };
 
-      setLatestQuoteResult({
-        quoteResponse: response,
-        formData: { ...travelForm, ...customerForm },
-        planType: insuranceRequestType,
-        totalTravellers,
-        bulkDocument:
-          insuranceRequestType === 'bulk' && bulkDocument
-            ? {
-                uri: bulkDocument.uri,
-                name: bulkDocument.name,
-                mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
-              }
-            : null,
-      });
+      if (PREMIUM_MODE === 'static') {
+        const no_of_days = calcNoOfDays(travelForm.startDate!, travelForm.endDate!);
+        const staticResponse = await fetchBharatBhramanPremium(no_of_days);
+        setLatestQuoteResult({
+          mode: 'static',
+          staticQuoteResponse: { ...staticResponse, travellerDetails: formData, lead_type: insuranceRequestType },
+          formData,
+          planType: insuranceRequestType,
+          totalTravellers,
+          bulkDocument:
+            insuranceRequestType === 'bulk' && bulkDocument
+              ? {
+                  uri: bulkDocument.uri,
+                  name: bulkDocument.name,
+                  mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+                }
+              : null,
+        });
+      } else {
+        const response = await submitQuote(formData, ckycData!);
+        setLatestQuoteResult({
+          mode: 'bajaj',
+          quoteResponse: response,
+          formData,
+          planType: insuranceRequestType,
+          totalTravellers,
+          bulkDocument:
+            insuranceRequestType === 'bulk' && bulkDocument
+              ? {
+                  uri: bulkDocument.uri,
+                  name: bulkDocument.name,
+                  mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+                }
+              : null,
+        });
+      }
 
       setStep(1);
       setOpenPanel(null);
@@ -519,14 +548,15 @@ export default function HomeScreen() {
       return;
     }
 
-    if (isFetchingCkyc) {
-      Alert.alert('Please wait', 'CKYC verification is in progress. Please wait before submitting.');
-      return;
-    }
-
-    if (!ckycData) {
-      Alert.alert('Verification required', 'CKYC verification failed or is incomplete. Please check your PAN, DOB, and phone number.');
-      return;
+    if (PREMIUM_MODE === 'bajaj') {
+      if (isFetchingCkyc) {
+        Alert.alert('Please wait', 'CKYC verification is in progress. Please wait before submitting.');
+        return;
+      }
+      if (!ckycData) {
+        Alert.alert('Verification required', 'CKYC verification failed or is incomplete. Please check your PAN, DOB, and phone number.');
+        return;
+      }
     }
 
     try {
@@ -544,23 +574,42 @@ export default function HomeScreen() {
         nomineeName: name.trim() || 'Self',
       };
 
-      const response = await submitQuote(bulkFormData, ckycData);
-
       const totalTravellers = Object.values(travelForm.travellers).reduce((s, n) => s + n, 0);
 
-      setLatestQuoteResult({
-        quoteResponse: response,
-        formData: bulkFormData,
-        planType: 'bulk',
-        totalTravellers,
-        bulkDocument: bulkDocument
-          ? {
-              uri: bulkDocument.uri,
-              name: bulkDocument.name,
-              mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
-            }
-          : null,
-      });
+      if (PREMIUM_MODE === 'static') {
+        const no_of_days = calcNoOfDays(travelForm.startDate!, travelForm.endDate!);
+        const staticResponse = await fetchBharatBhramanPremium(no_of_days);
+        setLatestQuoteResult({
+          mode: 'static',
+          staticQuoteResponse: { ...staticResponse, travellerDetails: bulkFormData, lead_type: 'bulk' },
+          formData: bulkFormData,
+          planType: 'bulk',
+          totalTravellers,
+          bulkDocument: bulkDocument
+            ? {
+                uri: bulkDocument.uri,
+                name: bulkDocument.name,
+                mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+              }
+            : null,
+        });
+      } else {
+        const response = await submitQuote(bulkFormData, ckycData!);
+        setLatestQuoteResult({
+          mode: 'bajaj',
+          quoteResponse: response,
+          formData: bulkFormData,
+          planType: 'bulk',
+          totalTravellers,
+          bulkDocument: bulkDocument
+            ? {
+                uri: bulkDocument.uri,
+                name: bulkDocument.name,
+                mimeType: bulkDocument.mimeType ?? getMimeTypeFromFileName(bulkDocument.name),
+              }
+            : null,
+        });
+      }
 
       setStep(1);
       setOpenPanel(null);
@@ -637,18 +686,12 @@ export default function HomeScreen() {
                   <Text className="mb-4 text-xs font-bold uppercase tracking-widest text-sky-800">
                     Maa Pranaam Fortune LLP
                   </Text>
-                  <Text className="text-3xl font-semibold tracking-[2px] text-sky-950">Book Your</Text>
+                  <Text className="text-5xl font-bold tracking-[2px] text-sky-950">Make Your Trip</Text>
                   <Text
                     className="mt-2 text-center text-6xl font-extrabold leading-[54px] tracking-[2px] text-white"
                     style={styles.titleShadow}
                   >
-                    TRAVEL
-                  </Text>
-                  <Text
-                    className="text-center text-6xl font-extrabold leading-[54px] tracking-[2px] text-white"
-                    style={styles.titleShadow}
-                  >
-                    INSURANCE
+                    SECURE
                   </Text>
                 </View>
 

@@ -28,7 +28,6 @@ type TabFilter = 'all' | PolicyRequestStatus;
 
 const tabs: Array<{ label: string; value: TabFilter }> = [
   { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
   { label: 'Assigned', value: 'assigned' },
   { label: 'Issued', value: 'issued' },
   { label: 'Rejected', value: 'rejected' },
@@ -124,51 +123,44 @@ export default function MyPoliciesScreen() {
             </Text>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mt-6"
-            contentContainerStyle={{ paddingRight: 4 }}
+          <View
+            className="mt-6 flex-row rounded-[22px] bg-white/95 p-1"
+            style={styles.panelShadow}
+            onLayout={(event) => setTabContainerWidth(event.nativeEvent.layout.width)}
           >
-            <View
-              className="flex-row rounded-[22px] bg-white/95 p-1"
-              style={styles.panelShadow}
-              onLayout={(event) => setTabContainerWidth(event.nativeEvent.layout.width)}
-            >
-              {indicatorWidth > 0 ? (
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.tabIndicator,
-                    {
-                      width: indicatorWidth,
-                      transform: [{ translateX: indicatorTranslateX }],
-                    },
-                  ]}
-                />
-              ) : null}
+            {indicatorWidth > 0 ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.tabIndicator,
+                  {
+                    width: indicatorWidth,
+                    transform: [{ translateX: indicatorTranslateX }],
+                  },
+                ]}
+              />
+            ) : null}
 
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.value;
-                return (
-                  <Pressable
-                    key={tab.value}
-                    onPress={() => setActiveTab(tab.value)}
-                    className="rounded-[18px] px-4 py-3"
-                    style={styles.tabButton}
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.value;
+              return (
+                <Pressable
+                  key={tab.value}
+                  onPress={() => setActiveTab(tab.value)}
+                  className="flex-1 rounded-[18px] py-3"
+                  style={styles.tabButton}
+                >
+                  <Text
+                    className={`text-center text-sm font-bold ${
+                      isActive ? 'text-white' : 'text-slate-600'
+                    }`}
                   >
-                    <Text
-                      className={`text-center text-sm font-bold ${
-                        isActive ? 'text-white' : 'text-slate-600'
-                      }`}
-                    >
-                      {tab.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <View
             className="mt-5 flex-row items-center rounded-[22px] bg-white/95 px-4 py-1"

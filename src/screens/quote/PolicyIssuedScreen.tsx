@@ -30,7 +30,7 @@ export default function PolicyIssuedScreen() {
           <Text style={styles.subtitle}>
             Your policy request has been raised successfully. Our team will review and process it shortly.
           </Text>
-          <Text style={styles.company}>Maa Pranaam Fortune LLP</Text>
+          {/* <Text style={styles.company}>Maa Pranaam Fortune LLP</Text> */}
         </View>
 
         <View style={styles.detailsCard}>
@@ -126,9 +126,11 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 8,
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: '900',
     color: '#064E3B',
+    textAlign: 'center',
+
   },
   subtitle: {
     marginTop: 10,

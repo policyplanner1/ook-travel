@@ -112,10 +112,8 @@ export default function MyCommissionScreen() {
         earnings:   Number(backendSummary.commission_earned),
         totalSales: Number(backendSummary.total_premium),
         thisMonth:  localSummary.thisMonth,
-        paid:       Number(backendSummary.paid_amount),
-        pending:    Number(backendSummary.pending_amount),
       }
-    : { ...localSummary, paid: 0, pending: localSummary.earnings };
+    : localSummary;
 
   const activeData = useMemo(
     () =>
@@ -208,11 +206,6 @@ export default function MyCommissionScreen() {
             <View className="mt-6 flex-row gap-4">
               <SummaryCard title="This Month" value={isLoading ? 0 : commissionSummary.thisMonth} />
               <SummaryCard title="Total Sales" value={isLoading ? 0 : commissionSummary.totalSales} />
-            </View>
-
-            <View className="mt-4 flex-row gap-4">
-              <SummaryCard title="Paid" value={isLoading ? 0 : commissionSummary.paid} color="#065F46" />
-              <SummaryCard title="Pending" value={isLoading ? 0 : commissionSummary.pending} color="#92400E" />
             </View>
           </View>
 
