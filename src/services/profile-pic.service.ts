@@ -14,18 +14,20 @@ type ProfilePicUploadPayload = {
 };
 
 type ProfilePicUploadResponse = {
-  ok: boolean;
+  success: boolean;
   message: string;
-  data?: {
-    id: number;
-    profile_pic_url?: string | null;
-    created_at?: string;
-    updated_at?: string;
+  data: {
+    agent: {
+      id: number;
+      profile_photo?: string | null;
+      created_at?: string;
+      updated_at?: string;
+    };
   };
 };
 
-const PROFILE_PIC_SAVE_PATH = '/agent/profile-pic/save';
-const PROFILE_PIC_EDIT_PATH = '/agent/profile-pic/edit';
+const PROFILE_PIC_SAVE_PATH = '/profile/photo';
+const PROFILE_PIC_EDIT_PATH = '/profile/photo';
 
 function getProfilePicErrorMessage(error: unknown, fallbackMessage: string) {
   if (axios.isAxiosError<{ message?: string }>(error)) {
@@ -53,7 +55,7 @@ async function uploadProfilePic(path: string, payload: ProfilePicUploadPayload) 
   );
 
   try {
-    const { data } = await api.put<ProfilePicUploadResponse>(path, formData, {
+    const { data } = await api.patch<ProfilePicUploadResponse>(path, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -61,7 +63,7 @@ async function uploadProfilePic(path: string, payload: ProfilePicUploadPayload) 
 
     return {
       message: data.message,
-      profileImageUri: resolveApiAssetUrl(data.data?.profile_pic_url ?? null),
+      profileImageUri: resolveApiAssetUrl(data.data?.agent?.profile_photo ?? null),
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {

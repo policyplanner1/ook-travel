@@ -108,8 +108,8 @@ export type ProposalPolicyDetails = {
 };
 
 export type ProposalResponseData = {
-  pTrvPartnerDtls_inout: ProposalPartnerDetails;
-  pTrvPolDtls_inout: ProposalPolicyDetails;
+  pTrvPartnerDtls_inout: ProposalPartnerDetails | null;
+  pTrvPolDtls_inout: ProposalPolicyDetails | null;
   pRequestid_out: string;
   pErrorCode_out: string;
 };
@@ -117,6 +117,21 @@ export type ProposalResponseData = {
 export type QuoteResponse = {
   message: string;
   proposalResponse: ProposalResponseData;
+  premiumAmount: string;
+};
+
+export type StoredQuoteResult = {
+  mode: 'bajaj' | 'static';
+  quoteResponse?: QuoteResponse;
+  staticQuoteResponse?: StaticQuoteResponse;
+  formData: TravelQuoteFormData & CustomerDetailsFormData;
+  planType: 'individual' | 'bulk';
+  totalTravellers?: number;
+  bulkDocument?: {
+    uri: string;
+    name: string;
+    mimeType: string;
+  } | null;
 };
 
 export type StaticQuoteDetails = {
@@ -168,17 +183,11 @@ export type StaticQuoteResponse = {
 };
 
 export type BulkInsuranceUploadResponse = {
-  ok: boolean;
+  success: boolean;
   message: string;
   data: {
-    id: number;
-    agent_id: number;
-    agent_name: string;
-    fileName: string;
-    fileType: string;
-    url: string;
-    created_at: string;
-    updated_at: string;
+    request_number: string;
+    file: string;
   };
 };
 
@@ -249,4 +258,45 @@ export type IssuedPolicyRecord = {
 export type IssuedPoliciesResponse = {
   ok: boolean;
   data: IssuedPolicyRecord[];
+};
+
+export type PolicyRequestStatus = 'pending' | 'assigned' | 'issued' | 'rejected';
+
+export type PolicyRequest = {
+  id: number;
+  request_number: string;
+  traveler_name: string;
+  travel_date: string | null;
+  return_date: string | null;
+  estimated_premium: string | null;
+  payment_amount: string | null;
+  status: PolicyRequestStatus;
+  plan_type: 'individual' | 'bulk' | null;
+  num_travelers: number | null;
+  created_at: string;
+  agent_name: string | null;
+  rm_name: string | null;
+};
+
+export type PolicyRequestsResponse = {
+  success: boolean;
+  data: {
+    requests: PolicyRequest[];
+    total: number;
+    page: number;
+    limit: number;
+  };
+};
+
+export type CommissionSummary = {
+  agent_id: number;
+  full_name: string | null;
+  email: string | null;
+  total_premium: number;
+  commission_earned: number;
+};
+
+export type CommissionSummaryResponse = {
+  success: boolean;
+  data: CommissionSummary;
 };

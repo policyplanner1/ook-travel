@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
-  Download,
   Search,
+  Users,
   UserRound,
 } from 'lucide-react-native';
 import {
-  Alert,
   Animated,
   Easing,
   ImageBackground,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,44 +19,34 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  getAllIssuedPolicies,
-  getIssuedPolicyInvoiceUrl,
-} from '@/services/static-quote.service';
+import { getAgentPolicyRequests } from '@/services/policy.service';
 import { useAuth } from '@/store/auth';
-import type { IssuedPolicyRecord } from '@/types/quote';
+import type { PolicyRequest, PolicyRequestStatus } from '@/types/quote';
 import { formatDate } from '@/utils/date';
 
-type PolicyStatus = 'active' | 'expired';
+type TabFilter = 'all' | PolicyRequestStatus;
 
-type PolicyRecord = {
-  id: string;
-  uuid: string;
-  customerName: string;
-  policyNumber: string;
-  travelDates: string;
-  premiumAmount: string;
-  coverAmount: string;
-  status: PolicyStatus;
-  product: string;
-};
-
-type PolicyTab = PolicyStatus | 'all' | 'claim';
-
-const tabs: Array<{ label: string; value: PolicyTab }> = [
+const tabs: Array<{ label: string; value: TabFilter }> = [
   { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Expired', value: 'expired' },
-  // { label: 'Claim', value: 'claim' },
+  { label: 'Assigned', value: 'assigned' },
+  { label: 'Issued', value: 'issued' },
+  { label: 'Rejected', value: 'rejected' },
 ];
+
+const STATUS_COLORS: Record<PolicyRequestStatus, { bg: string; text: string }> = {
+  pending:  { bg: '#FEF3C7', text: '#92400E' },
+  assigned: { bg: '#DBEAFE', text: '#1E40AF' },
+  issued:   { bg: '#D1FAE5', text: '#065F46' },
+  rejected: { bg: '#FEE2E2', text: '#991B1B' },
+};
 
 export default function MyPoliciesScreen() {
   const isFocused = useIsFocused();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<PolicyTab>('all');
+  const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [tabContainerWidth, setTabContainerWidth] = useState(0);
-  const [policies, setPolicies] = useState<PolicyRecord[]>([]);
+  const [requests, setRequests] = useState<PolicyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -67,73 +55,46 @@ export default function MyPoliciesScreen() {
   const indicatorWidth = tabContainerWidth > 0 ? (tabContainerWidth - 8) / tabs.length : 0;
 
   useEffect(() => {
-    if (!isFocused) {
-      return;
-    }
+    if (!isFocused) return;
 
     let isMounted = true;
 
-    async function loadPolicies() {
+    async function loadRequests() {
       try {
         setIsLoading(true);
         setErrorMessage('');
-
-        const response = await getAllIssuedPolicies(user!.id);
-
-        if (!isMounted) {
-          return;
-        }
-
-        const mappedPolicies = (response.data ?? []).map(mapIssuedPolicyToCard);
-        setPolicies(mappedPolicies);
+        const response = await getAgentPolicyRequests(user!.id);
+        if (!isMounted) return;
+        setRequests(response.data?.requests ?? []);
       } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        const message =
-          error instanceof Error ? error.message : 'Unable to load your policies right now.';
-        setErrorMessage(message);
-        setPolicies([]);
+        if (!isMounted) return;
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Unable to load your policies right now.'
+        );
+        setRequests([]);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     }
 
-    loadPolicies();
-
-    return () => {
-      isMounted = false;
-    };
+    loadRequests();
+    return () => { isMounted = false; };
   }, [isFocused]);
 
-  const filteredPolicies = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    return policies.filter((policy) => {
-      const matchesTab =
-        activeTab === 'all'
-          ? true
-          : activeTab === 'claim'
-            ? false
-            : policy.status === activeTab;
+  const filteredRequests = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return requests.filter((r) => {
+      const matchesTab = activeTab === 'all' || r.status === activeTab;
       const matchesSearch =
-        !normalizedQuery ||
-        policy.customerName.toLowerCase().includes(normalizedQuery) ||
-        policy.product.toLowerCase().includes(normalizedQuery) ||
-        policy.policyNumber.toLowerCase().includes(normalizedQuery);
-
+        !q ||
+        r.traveler_name.toLowerCase().includes(q) ||
+        r.request_number.toLowerCase().includes(q);
       return matchesTab && matchesSearch;
     });
-  }, [activeTab, policies, searchQuery]);
+  }, [activeTab, requests, searchQuery]);
 
   useEffect(() => {
-    if (!indicatorWidth) {
-      return;
-    }
-
+    if (!indicatorWidth) return;
     Animated.timing(indicatorTranslateX, {
       toValue: activeIndex * indicatorWidth,
       duration: 220,
@@ -141,22 +102,6 @@ export default function MyPoliciesScreen() {
       useNativeDriver: true,
     }).start();
   }, [activeIndex, indicatorTranslateX, indicatorWidth]);
-
-  async function handleDownload(policy: PolicyRecord) {
-    if (!policy.uuid) {
-      Alert.alert('Download unavailable', 'This policy does not have a valid invoice reference yet.');
-      return;
-    }
-
-    try {
-      const invoiceUrl = getIssuedPolicyInvoiceUrl(policy.uuid);
-      await Linking.openURL(invoiceUrl);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Something went wrong while opening the invoice.';
-      Alert.alert('Download failed', message);
-    }
-  }
 
   return (
     <ImageBackground
@@ -174,7 +119,7 @@ export default function MyPoliciesScreen() {
           <View>
             <Text className="text-3xl font-extrabold text-sky-950">My Policies</Text>
             <Text className="mt-2 text-sm leading-6 text-slate-600">
-              Track active and expired travel policies in one place.
+              Track all your policy requests and their current status.
             </Text>
           </View>
 
@@ -198,16 +143,15 @@ export default function MyPoliciesScreen() {
 
             {tabs.map((tab) => {
               const isActive = activeTab === tab.value;
-
               return (
                 <Pressable
                   key={tab.value}
                   onPress={() => setActiveTab(tab.value)}
-                  className="flex-1 rounded-[18px] px-4 py-3"
+                  className="flex-1 rounded-[18px] py-3"
                   style={styles.tabButton}
                 >
                   <Text
-                    className={`text-center text-base font-bold ${
+                    className={`text-center text-sm font-bold ${
                       isActive ? 'text-white' : 'text-slate-600'
                     }`}
                   >
@@ -226,14 +170,14 @@ export default function MyPoliciesScreen() {
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search policies..."
+              placeholder="Search by name or request number..."
               placeholderTextColor="#94A3B8"
               className="ml-3 flex-1 py-4 text-base text-slate-700"
             />
           </View>
 
           <Text className="mt-3 text-base font-semibold text-slate-800">
-            Total Policies: {isLoading ? 0 : filteredPolicies.length}
+            Total: {isLoading ? 0 : filteredRequests.length}
           </Text>
 
           <View className="mt-5 gap-4">
@@ -241,7 +185,7 @@ export default function MyPoliciesScreen() {
               <View className="rounded-[26px] bg-white/95 px-6 py-8" style={styles.panelShadow}>
                 <Text className="text-center text-lg font-bold text-sky-950">Loading policies...</Text>
                 <Text className="mt-2 text-center text-sm leading-6 text-slate-500">
-                  Fetching your latest issued policy details.
+                  Fetching your latest policy requests.
                 </Text>
               </View>
             ) : errorMessage ? (
@@ -253,19 +197,13 @@ export default function MyPoliciesScreen() {
                   {errorMessage}
                 </Text>
               </View>
-            ) : filteredPolicies.length ? (
-              filteredPolicies.map((policy) => (
-                <PolicyCard key={policy.id} policy={policy} onDownload={handleDownload} />
-              ))
+            ) : filteredRequests.length ? (
+              filteredRequests.map((req) => <RequestCard key={req.id} request={req} />)
             ) : (
               <View className="rounded-[26px] bg-white/95 px-6 py-8" style={styles.panelShadow}>
-                <Text className="text-center text-lg font-bold text-sky-950">
-                  {activeTab === 'claim' ? 'No claims found' : 'No policies found'}
-                </Text>
+                <Text className="text-center text-lg font-bold text-sky-950">No requests found</Text>
                 <Text className="mt-2 text-center text-sm leading-6 text-slate-500">
-                  {activeTab === 'claim'
-                    ? 'Claims will appear here once claim data is available.'
-                    : 'Try another customer name or switch the filter tab.'}
+                  Try another name or switch the filter tab.
                 </Text>
               </View>
             )}
@@ -276,136 +214,85 @@ export default function MyPoliciesScreen() {
   );
 }
 
-function PolicyCard({
-  onDownload,
-  policy,
-}: {
-  onDownload: (policy: PolicyRecord) => void;
-  policy: PolicyRecord;
-}) {
+function RequestCard({ request }: { request: PolicyRequest }) {
+  const colors = STATUS_COLORS[request.status] ?? { bg: '#F1F5F9', text: '#475569' };
+
   return (
     <View className="overflow-hidden rounded-[26px] bg-white/95" style={styles.panelShadow}>
       <View className="px-5 pb-4 pt-5">
         <View className="flex-row items-start justify-between">
           <View className="mr-4 flex-1">
-            <Text className="text-2xl font-extrabold text-sky-950">{policy.customerName}</Text>
-            {/* <View className="mt-2 flex-row items-center">
-              <FileText size={16} color="#64748B" strokeWidth={2.2} />
-              <Text className="ml-2 text-sm font-medium text-slate-500">{policy.destination}</Text>
-            </View> */}
+            <Text className="text-2xl font-extrabold text-sky-950">{request.traveler_name}</Text>
           </View>
 
-          <Pressable
-            onPress={() => onDownload(policy)}
-            className="h-11 w-11 items-center justify-center rounded-2xl bg-sky-50"
+          <View
+            className="rounded-xl px-3 py-1.5"
+            style={{ backgroundColor: colors.bg }}
           >
-            <Download size={20} color="#2563EB" strokeWidth={2.2} />
-          </Pressable>
+            <Text className="text-xs font-bold capitalize" style={{ color: colors.text }}>
+              {request.status}
+            </Text>
+          </View>
         </View>
 
-        <View className="flex-row items-center">
+        <View className="mt-2 flex-row items-center">
           <UserRound size={18} color="#3B82F6" strokeWidth={2.2} />
-          <Text className="ml-2 text-sm font-medium text-slate-600">{policy.policyNumber}</Text>
+          <Text className="ml-2 text-sm font-medium text-slate-600">{request.request_number}</Text>
         </View>
 
-        {/* <Text className="mt-3 text-sm font-semibold text-slate-500">{policy.product}</Text> */}
-
-        <View className="mt-3 flex-row items-center">
+        <View className="mt-2 flex-row items-center">
           <CalendarDays size={18} color="#3B82F6" strokeWidth={2.2} />
-          <Text className="ml-2 text-sm font-medium text-slate-600">{policy.travelDates}</Text>
+          <Text className="ml-2 text-sm font-medium text-slate-600">
+            {formatTravelDates(request.travel_date, request.return_date)}
+          </Text>
         </View>
+
+        {request.plan_type === 'bulk' ? (
+          <View className="mt-2 flex-row items-center gap-3">
+            <View className="rounded-lg bg-sky-100 px-3 py-1">
+              <Text className="text-xs font-bold uppercase text-sky-800">Bulk</Text>
+            </View>
+            <View className="flex-row items-center">
+              <Users size={16} color="#64748B" strokeWidth={2.2} />
+              <Text className="ml-1.5 text-sm font-medium text-slate-600">
+                {request.num_travelers ?? 1} Traveller{(request.num_travelers ?? 1) !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View className="flex-row border-t border-slate-200 bg-slate-50/90">
-        <CoverageItem label="Premium Amount" value={policy.premiumAmount} />
+        <AmountItem label="Est. Premium" value={request.estimated_premium} />
         <View className="w-px bg-slate-200" />
-        <CoverageItem label="Cover Amount" value={policy.coverAmount} />
+        <AmountItem label="Payment Amount" value={request.payment_amount} />
       </View>
     </View>
   );
 }
 
-function CoverageItem({ label, value }: { label: string; value: string }) {
+function AmountItem({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <View className="flex-1 px-4 py-4">
       <Text className="text-sm font-medium text-slate-500">{label}</Text>
-      <Text className="mt-1 text-2xl font-extrabold text-sky-950">{value}</Text>
+      <Text className="mt-1 text-2xl font-extrabold text-sky-950">{formatCurrency(value)}</Text>
     </View>
   );
 }
 
 const currencyFormatter = new Intl.NumberFormat('en-IN');
 
-function mapIssuedPolicyToCard(policy: IssuedPolicyRecord): PolicyRecord {
-  const customerName = policy.traveller_details?.name?.trim() || 'Unnamed traveller';
-  const policyNumber = policy.uuid || String(policy.id);
-  const product = policy.product || 'Travel Policy';
-  const startDate = policy.traveller_details?.startDate;
-  const endDate = policy.traveller_details?.endDate;
-  const coverAmount = policy.quote_details?.basic_coverage;
-
-  return {
-    id: String(policy.id),
-    uuid: policy.uuid,
-    customerName,
-    policyNumber,
-    product,
-    travelDates: formatTravelDates(startDate, endDate),
-    premiumAmount: formatCurrency(policy.premium),
-    coverAmount: formatCurrency(coverAmount),
-    status: getPolicyStatus(startDate, endDate),
-  };
-}
-
 function formatTravelDates(startDate?: string | null, endDate?: string | null) {
-  if (!startDate || !endDate) {
-    return 'Travel dates not available';
-  }
-
-  return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  if (!startDate && !endDate) return 'Travel dates not set';
+  if (!endDate) return formatDate(startDate!);
+  return `${formatDate(startDate!)} - ${formatDate(endDate)}`;
 }
 
 function formatCurrency(value: string | number | null | undefined) {
-  const numericValue =
+  const num =
     typeof value === 'number' ? value : typeof value === 'string' ? Number.parseFloat(value) : NaN;
-
-  if (!Number.isFinite(numericValue)) {
-    return 'Not available';
-  }
-
-  return `Rs. ${currencyFormatter.format(numericValue)}`;
-}
-
-function getPolicyStatus(startDate?: string | null, endDate?: string | null): PolicyStatus {
-  const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const normalizedStartDate = parseDateOnly(startDate);
-  const normalizedEndDate = parseDateOnly(endDate);
-
-  if (!normalizedStartDate && !normalizedEndDate) {
-    return 'expired';
-  }
-
-  if (normalizedEndDate && todayOnly > normalizedEndDate) {
-    return 'expired';
-  }
-
-  return 'active';
-}
-
-function parseDateOnly(dateString?: string | null) {
-  if (!dateString) {
-    return null;
-  }
-
-  const parts = dateString.split('-').map(Number);
-
-  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
-    return null;
-  }
-
-  const [year, month, day] = parts;
-  return new Date(year, month - 1, day);
+  if (!Number.isFinite(num)) return 'N/A';
+  return `Rs. ${currencyFormatter.format(num)}`;
 }
 
 const styles = StyleSheet.create({

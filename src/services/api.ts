@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 const API_BASE_URLS = {
-  local: 'http://192.168.1.208:1200',
-  prod: 'https://policyplanner.com/travel-insurance',
+  // local: 'http://192.168.1.208:1200',
+  local: 'http://192.168.1.159:5000/api/app',
+  prod: 'https://api.ooktravel.in/api/app',
 } as const;
 
 const CASHFREE_CHECKOUT_URLS = {
@@ -16,17 +17,21 @@ const cashfreeMode = process.env.EXPO_PUBLIC_CASHFREE_MODE === 'prod' ? 'prod' :
 export const baseURL = API_BASE_URLS[apiMode];
 export const cashfreeCheckoutURL = CASHFREE_CHECKOUT_URLS[cashfreeMode];
 
+// Uploaded files (e.g. /uploads/profiles/xxx.jpg) are served from the server's
+// root, not under the /api/app prefix, so assets must resolve against the origin.
+const assetBaseURL = baseURL.match(/^[a-z]+:\/\/[^/]+/i)?.[0] ?? baseURL;
+
 export function resolveApiAssetUrl(url?: string | null) {
   if (!url) {
     return null;
   }
 
   if (url.startsWith('/')) {
-    return `${baseURL}${url}`;
+    return `${assetBaseURL}${url}`;
   }
 
-  if (url.startsWith('http://localhost:1200')) {
-    return url.replace('http://localhost:1200', baseURL);
+  if (url.startsWith('http://192.168.1.244:5000')) {
+    return url.replace('http://192.168.1.244:5000', assetBaseURL);
   }
 
   return url;

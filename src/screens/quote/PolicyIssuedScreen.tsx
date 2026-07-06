@@ -25,11 +25,12 @@ export default function PolicyIssuedScreen() {
           <View style={styles.iconWrap}>
             <CheckCircle2 size={38} color="#047857" strokeWidth={2.4} />
           </View>
-          <Text style={styles.eyebrow}>Payment Completed</Text>
-          <Text style={styles.title}>Policy Issued</Text>
+          <Text style={styles.eyebrow}>Request Submitted</Text>
+          <Text style={styles.title}>Policy Request Raised</Text>
           <Text style={styles.subtitle}>
-            Your policy has been issued successfully. Here are the basic details.
+            Your policy request has been raised successfully. Our team will review and process it shortly.
           </Text>
+          {/* <Text style={styles.company}>Maa Pranaam Fortune LLP</Text> */}
         </View>
 
         <View style={styles.detailsCard}>
@@ -125,9 +126,11 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 8,
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: '900',
     color: '#064E3B',
+    textAlign: 'center',
+
   },
   subtitle: {
     marginTop: 10,
@@ -135,6 +138,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: '#4B5563',
+  },
+  company: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: '#059669',
   },
   detailsCard: {
     marginTop: 18,

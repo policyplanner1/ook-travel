@@ -3,8 +3,8 @@ import axios from 'axios';
 import { api, baseURL } from '@/services/api';
 import type { BankDetails } from '@/types/auth';
 
-const CREATE_BANK_DETAILS_ENDPOINT = '/agent/bank-details/save';
-const EDIT_BANK_DETAILS_ENDPOINT = '/agent/bank-details/edit';
+const CREATE_BANK_DETAILS_ENDPOINT = '/bank';
+const EDIT_BANK_DETAILS_ENDPOINT = '/bank';
 
 type SaveBankDetailsPayload = {
   agentId: number;
@@ -23,10 +23,9 @@ type SaveBankDetailsRequest = {
 };
 
 type SaveBankDetailsResponse = {
-  ok?: boolean;
-  message?: string;
-  bankDetails?: Partial<SaveBankDetailsRequest>;
-  bank_details?: Partial<SaveBankDetailsRequest>;
+  success: boolean;
+  message: string;
+  data: { bank_details: Partial<SaveBankDetailsRequest> };
 };
 
 function normalizeBankDetails(details: BankDetails): BankDetails {
@@ -92,7 +91,7 @@ export async function saveBankDetails(payload: SaveBankDetailsPayload): Promise<
       : await api.post<SaveBankDetailsResponse>(endpoint, requestBody);
     console.log('Save bank details response:', data);
 
-    return mapApiBankDetails(data.bankDetails ?? data.bank_details, normalizedDetails);
+    return mapApiBankDetails(data.data?.bank_details, normalizedDetails);
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.log('Save bank details error:', {

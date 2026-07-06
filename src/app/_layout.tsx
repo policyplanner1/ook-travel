@@ -28,9 +28,11 @@ function RootNavigator() {
     if (isInitializing) return;
 
     const AUTH_ONLY_ROUTES = new Set(['login', 'signup', 'forgot-password']);
+    const PUBLIC_ROUTES = new Set(['terms-and-conditions', 'privacy-policy']);
     const onAuthOnlyRoute = AUTH_ONLY_ROUTES.has(segments[0] as string);
+    const onPublicRoute = PUBLIC_ROUTES.has(segments[0] as string);
 
-    if (!isAuthenticated && !onAuthOnlyRoute) {
+    if (!isAuthenticated && !onAuthOnlyRoute && !onPublicRoute) {
       router.replace('/login');
     } else if (isAuthenticated && onAuthOnlyRoute) {
       router.replace('/(tabs)');
@@ -49,11 +51,9 @@ function RootNavigator() {
     return (
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="cashfree-checkout" />
         <Stack.Screen name="gallery" />
         <Stack.Screen name="policy-issued" />
         <Stack.Screen name="quote" />
-        <Stack.Screen name="static-quote" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="terms-and-conditions" />
         <Stack.Screen name="privacy-policy" />

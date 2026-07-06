@@ -58,8 +58,11 @@ export default function LoginScreen() {
               <Image
                 source={require('../../../assets/images/ooktravel.png')}
                 resizeMode="contain"
-                className="h-28 w-52"
+                className="mb-1 h-28 w-52"
               />
+              <Text className="mb-3 text-xs font-bold uppercase tracking-widest text-sky-800">
+                Maa Pranaam Fortune LLP
+              </Text>
               <Text className="text-[28px] font-extrabold tracking-[0.2px] text-sky-950">Login</Text>
               <Text className="mt-3 max-w-[320px] font-medium text-center text-[18px] leading-7 text-sky-950/85">
                 Sell Travel Insurance Online{'\n'}& Earn High Commissions

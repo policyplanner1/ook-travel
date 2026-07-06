@@ -1,67 +1,51 @@
 import axios from 'axios';
 import { api, baseURL } from '@/services/api';
-import type { QuotePayload, QuoteResponse } from '@/types/quote';
+import type { CkycLookupResponse, QuotePayload, QuoteResponse, StaticQuoteResponse } from '@/types/quote';
 
-function formatDobForProposal(dob: string) {
-  const [day = '', month = '', year = ''] = dob.split('/');
-  const monthIndex = Number(month) - 1;
-  const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const monthCode = monthNames[monthIndex] ?? 'DEC';
-
-  return `${day.padStart(2, '0')}-${monthCode}-${year}`;
+export async function fetchBharatBhramanPremium(no_of_days: number): Promise<StaticQuoteResponse> {
+  const { data } = await api.post<{ success: boolean; message: string; data: StaticQuoteResponse }>(
+    '/bajaj/bharat-bhraman',
+    { no_of_days }
+  );
+  return data.data;
 }
 
-function splitFullName(name: string) {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  return {
-    firstName: (parts[0] ?? 'AFTAB').toUpperCase(),
-    middleName: (parts[1] ?? 'ASHOK').toUpperCase(),
-    lastName: (parts.slice(2).join(' ') || parts[1] || 'NAIK').toUpperCase(),
-  };
-}
-
-export async function submitQuote(payload: QuotePayload) {
-  const { firstName, middleName, lastName } = splitFullName(payload.name);
-
+export async function submitQuote(payload: QuotePayload, ckycData: CkycLookupResponse): Promise<QuoteResponse> {
   const requestBody = {
-    UUID: 'c254dfd8-8927-426e-b371-b31d94f30f67',
-    building: 'A-204',
-    city: payload.city || 'pune',
-    company_id: '1018',
-    dob: formatDobForProposal(payload.dob),
-    docNumber: payload.panNo || 'BOGPN8336B',
-    email: payload.email || 'aftabnaik1999@gmail.com',
-    firstName,
-    fromDate: payload.startDate ?? '2026-04-12',
-    gender: (payload.gender.trim().charAt(0) || 'M').toUpperCase(),
-    lastName,
-    maritalstatus: (payload.maritalStatus || 'SINGLE').toUpperCase(),
-    middleName,
-    nomineename: payload.nomineeName || 'sneha',
-    pincode: payload.pinCode || '411048',
-    plan_id: '173',
-    quote_no: payload.phone || '9490723983',
-    state: payload.state || 'maharastra',
-    streetname: payload.streetName || 'metha nagar',
-    title: 'MR',
-    toDate: payload.endDate ?? '2026-04-20',
-    userPhone: payload.phone || '9175730492',
-    user_id: '7092',
+    UUID: ckycData.UUID,
+    user_id: String(ckycData.user_id),
+    quote_no: ckycData.quote_no,
+    company_id: String(ckycData.ckycResponse.company_id),
+    plan_id: String(ckycData.ckycResponse.plan_id),
+    docNumber: payload.panNo,
+    dob: ckycData.ckycResponse.dob,
+    title: ckycData.ckycResponse.title,
+    firstName: ckycData.ckycResponse.firstName,
+    middleName: ckycData.ckycResponse.middleName,
+    lastName: ckycData.ckycResponse.lastName,
+    email: payload.email,
+    userPhone: payload.phone,
+    gender: payload.gender.trim().charAt(0).toUpperCase(),
+    maritalstatus: payload.maritalStatus.toUpperCase(),
+    nomineename: payload.nomineeName,
+    pincode: payload.pinCode,
+    state: payload.state,
+    city: payload.city,
+    building: payload.streetName,
+    streetname: payload.streetName,
+    fromDate: payload.startDate,
+    toDate: payload.endDate,
   };
 
   console.log('Bajaj proposal request:', {
-    url: `${baseURL}/proposal/bajaj`,
+    url: `${baseURL}/bajaj/proposal`,
     body: requestBody,
   });
 
   try {
-    const { data } = await api.post<QuoteResponse>('/proposal/bajaj', requestBody);
+    const { data } = await api.post<{ success: boolean; message: string; data: QuoteResponse }>('/bajaj/proposal', requestBody);
     console.log('Bajaj proposal response:', data);
-    return data;
+    return data.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.log('Bajaj proposal error:', {
@@ -69,10 +53,9 @@ export async function submitQuote(payload: QuotePayload) {
         code: error.code,
         status: error.response?.status,
         data: error.response?.data,
-        url: `${baseURL}/proposal/bajaj`,
+        url: `${baseURL}/bajaj/proposal`,
       });
     }
-
     throw error;
   }
 }
