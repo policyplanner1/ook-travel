@@ -1,21 +1,17 @@
 import axios from 'axios';
+import { CFEnvironment } from 'cashfree-pg-api-contract';
 
 const API_BASE_URLS = {
   // local: 'http://192.168.1.208:1200',
-  local: 'http://192.168.1.159:5000/api/app',
+  local: 'http://localhost:5000/api/app',
   prod: 'https://api.ooktravel.in/api/app',
-} as const;
-
-const CASHFREE_CHECKOUT_URLS = {
-  local: 'https://sandbox.cashfree.com/pg/view/sessions/checkout',
-  prod: 'https://api.cashfree.com/pg/view/sessions/checkout',
 } as const;
 
 const apiMode = process.env.EXPO_PUBLIC_API_MODE === 'prod' ? 'prod' : 'local';
 const cashfreeMode = process.env.EXPO_PUBLIC_CASHFREE_MODE === 'prod' ? 'prod' : 'local';
 
 export const baseURL = API_BASE_URLS[apiMode];
-export const cashfreeCheckoutURL = CASHFREE_CHECKOUT_URLS[cashfreeMode];
+export const cashfreeEnvironment = cashfreeMode === 'prod' ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
 
 // Uploaded files (e.g. /uploads/profiles/xxx.jpg) are served from the server's
 // root, not under the /api/app prefix, so assets must resolve against the origin.

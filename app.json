@@ -11,7 +11,19 @@
       "icon": "./assets/images/travel-icon.png",
       "bundleIdentifier": "com.maapranaamfortune.ooktravel",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "amazonpay",
+          "upi",
+          "credpay",
+          "bhim",
+          "paytmmp",
+          "phonepe",
+          "tez",
+          "navipay",
+          "mobikwik",
+          "whatsapp"
+        ]
       }
     },
     "android": {

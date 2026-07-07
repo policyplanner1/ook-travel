@@ -17,6 +17,7 @@ type BulkInsuranceUploadPayload = {
   num_travelers?: number;
   estimated_premium?: number;
   payment_amount?: number;
+  payment_reference?: string;
   pan_no?: string;
   dob?: string;
   phone?: string;

@@ -205,37 +205,15 @@ export type StaticIssuePolicyPayload = {
   };
 };
 
-export type CashfreeCreateOrderPayload = {
-  order_id: string;
-  order_amount: number;
-  order_currency: string;
-  reference_id: string;
-  customer_details: {
-    customer_id: string;
-    customer_name: string;
-    customer_email: string;
-    customer_phone: string;
-  };
-};
-
 export type CashfreeCreateOrderResponse = {
-  payment_link?: string;
-  paymentLink?: string;
-  payment_url?: string;
-  paymentUrl?: string;
-  order_id?: string;
-  cf_order_id?: string;
-  payment_session_id?: string;
-  [key: string]: unknown;
+  order_id: string;
+  payment_session_id: string;
 };
 
 export type CashfreePaymentStatusResponse = {
-  status?: string;
-  payment_status?: string;
-  order_status?: string;
-  order_id?: string;
-  cf_payment_id?: string | number;
-  [key: string]: unknown;
+  order_id: string;
+  order_status: 'PAID' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED' | string;
+  order_amount: number;
 };
 
 export type IssuedPolicyPayment = {
