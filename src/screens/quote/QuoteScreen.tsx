@@ -224,8 +224,12 @@ export default function QuoteScreen() {
     try {
       const isBulk = planType === 'bulk' && !!bulkDocument;
 
+      // TEMP: forcing a real ₹1 charge for testing (2026-07-09) — remove this override and
+      // restore `totalPremium` once testing is done.
+      const TEST_AMOUNT_OVERRIDE = 1;
+
       const order = await createPaymentOrder({
-        amount:        totalPremium,
+        amount:        TEST_AMOUNT_OVERRIDE,
         customerId:    String(user.id),
         customerPhone: formData.phone || user.phone,
         customerEmail: formData.email || user.email,

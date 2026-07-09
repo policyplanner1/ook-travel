@@ -22,7 +22,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_MODE": "prod",
-        "EXPO_PUBLIC_CASHFREE_MODE": "local"
+        "EXPO_PUBLIC_CASHFREE_MODE": "prod"
       }
     },
     "production": {

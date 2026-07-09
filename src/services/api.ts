@@ -3,7 +3,7 @@ import { CFEnvironment } from 'cashfree-pg-api-contract';
 
 const API_BASE_URLS = {
   // local: 'http://192.168.1.208:1200',
-  local: 'http://localhost:5000/api/app',
+  local: 'http://192.168.1.183:5000/api/app',
   prod: 'https://api.ooktravel.in/api/app',
 } as const;
 
