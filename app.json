@@ -2,7 +2,7 @@
   "expo": {
     "name": "ookTravel",
     "slug": "ookTravel",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/travel-icon.png",
     "scheme": "ooktravel",
@@ -30,11 +30,11 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/travel-icon.png"
+        "foregroundImage": "./assets/images/travel-icon-adaptive-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.maapranaamfortune.ooktravel",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "output": "static",
