@@ -10,7 +10,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_MODE": "local",
+        "EXPO_PUBLIC_API_MODE": "prod",
         "EXPO_PUBLIC_CASHFREE_MODE": "local"
       }
     },
@@ -22,7 +22,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_MODE": "prod",
-        "EXPO_PUBLIC_CASHFREE_MODE": "prod"
+        "EXPO_PUBLIC_CASHFREE_MODE": "local"
       }
     },
     "production": {
@@ -31,7 +31,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_MODE": "prod",
-        "EXPO_PUBLIC_CASHFREE_MODE": "prod"
+        "EXPO_PUBLIC_CASHFREE_MODE": "local"
       }
     }
   }
