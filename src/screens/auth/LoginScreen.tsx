@@ -64,9 +64,9 @@ export default function LoginScreen() {
                 Maa Pranaam Fortune LLP
               </Text>
               <Text className="text-[28px] font-extrabold tracking-[0.2px] text-sky-950">Login</Text>
-              <Text className="mt-3 max-w-[320px] font-medium text-center text-[18px] leading-7 text-sky-950/85">
+              {/* <Text className="mt-3 max-w-[320px] font-medium text-center text-[18px] leading-7 text-sky-950/85">
                 Sell Travel Insurance Online{'\n'}& Earn High Commissions
-              </Text>
+              </Text> */}
             </View>
 
             <View className="mt-8 rounded-[34px] bg-white/80 px-4 py-5" style={styles.cardShadow}>

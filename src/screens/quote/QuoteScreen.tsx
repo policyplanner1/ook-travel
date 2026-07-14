@@ -1,10 +1,13 @@
+import { CFErrorResponse, CFPaymentGatewayService } from 'react-native-cashfree-pg-sdk';
+import { CFSession } from 'cashfree-pg-api-contract';
 import { router } from 'expo-router';
 import { ArrowLeft, ExternalLink, MapPin, ShieldCheck, Star, Ticket, UserRound} from 'lucide-react-native';
 import React, { type ReactNode } from 'react';
 import { ActivityIndicator, Alert, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { api } from '@/services/api';
+import { cashfreeEnvironment } from '@/services/api';
+import { completePaymentOrder, createPaymentOrder, verifyPaymentOrder } from '@/services/payment.service';
 import { submitBulkInsuranceUpload } from '@/services/policy.service';
 import { useAuth } from '@/store/auth';
 import { clearLatestQuoteResult, getLatestQuoteResult } from '@/store/quote-result';
@@ -36,7 +39,33 @@ function parseDateToISO(dateStr: string): string {
 export default function QuoteScreen() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const pendingSubmitRef = React.useRef<((orderId: string) => Promise<void>) | null>(null);
   const stored = getLatestQuoteResult();
+
+  React.useEffect(() => {
+    CFPaymentGatewayService.setCallback({
+      onVerify: async (orderID: string) => {
+        try {
+          const result = await verifyPaymentOrder(orderID);
+          if (result.order_status === 'PAID') {
+            await pendingSubmitRef.current?.(orderID);
+          } else {
+            setIsSubmitting(false);
+            Alert.alert('Payment Pending', `Payment status: ${result.order_status}. Please try again.`);
+          }
+        } catch {
+          setIsSubmitting(false);
+          Alert.alert('Error', 'Could not verify payment. Please contact support if the amount was deducted.');
+        }
+      },
+      onError: (error: CFErrorResponse) => {
+        setIsSubmitting(false);
+        Alert.alert('Payment Failed', error.getMessage() || 'Something went wrong.');
+      },
+    });
+
+    return () => CFPaymentGatewayService.removeCallback();
+  }, []);
 
   if (!stored) {
     return (
@@ -108,90 +137,127 @@ export default function QuoteScreen() {
     proposalResponse: quoteResponse!.proposalResponse,
   } : null;
 
-  async function submitPolicyRequest() {
+  // Bulk requests carry a file upload, which can't be replayed from a server-stored JSON
+  // payload — so unlike the non-bulk paths below, this has no webhook-based fallback if the
+  // app dies between payment success and this call completing.
+  async function submitBulkPolicyRequest(paymentReference: string) {
+    if (!user || !bulkDocument) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const travelDate = formData.startDate ?? parseDateToISO(policy.fromDate ?? '');
+      const returnDate = formData.endDate   ?? parseDateToISO(policy.toDate ?? '');
+      await submitBulkInsuranceUpload({
+        agent_id:          user.id,
+        travel_date:       travelDate,
+        return_date:       returnDate,
+        num_travelers:     numTravellers,
+        estimated_premium: basePremium,
+        payment_amount:    totalPremium,
+        payment_reference: paymentReference,
+        pan_no:            formData.panNo,
+        dob:               formData.dob,
+        phone:             formData.phone,
+        name:              fullName,
+        email:             formData.email,
+        proposal_response: isStatic
+          ? JSON.stringify(staticQuoteResponse ?? {})
+          : JSON.stringify(quoteResponse?.proposalResponse ?? {}),
+        file: {
+          uri:  bulkDocument.uri,
+          name: bulkDocument.name,
+          type: bulkDocument.mimeType,
+        },
+      });
+      clearLatestQuoteResult();
+      router.replace({
+        pathname: '/policy-issued',
+        params: {
+          travellerName: fullName,
+          startDate:     travelDate,
+          endDate:       returnDate,
+          premiumAmount: String(totalPremium),
+        },
+      });
+    } catch {
+      Alert.alert('Error', 'Payment succeeded but submitting your request failed. Please contact support with reference ' + paymentReference + '.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // Non-bulk paths: the backend already captured the full request payload at create-order time,
+  // so completing here just tells it the payment succeeded — if this call never happens (app
+  // killed, network dropped), the Cashfree webhook creates the request from that same payload.
+  async function completeNonBulkOrder(orderId: string) {
+    const travelDate = isStatic ? (formData.startDate ?? '') : parseDateToISO(policy.fromDate ?? '');
+    const returnDate = isStatic ? (formData.endDate   ?? '') : parseDateToISO(policy.toDate   ?? '');
+
+    try {
+      await completePaymentOrder(orderId);
+      clearLatestQuoteResult();
+      router.replace({
+        pathname: '/policy-issued',
+        params: {
+          travellerName: fullName,
+          startDate:     travelDate,
+          endDate:       returnDate,
+          premiumAmount: String(totalPremium),
+        },
+      });
+    } catch {
+      Alert.alert(
+        'Payment Received',
+        `Your payment (ref ${orderId}) was received but confirming it with the server failed. Your request will still be processed shortly — check My Policies later, or contact support with this reference.`
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function startPayment() {
     if (!user) return;
     setIsSubmitting(true);
 
     try {
-      if (planType === 'bulk' && bulkDocument) {
-        const travelDate = formData.startDate ?? parseDateToISO(policy.fromDate ?? '');
-        const returnDate = formData.endDate   ?? parseDateToISO(policy.toDate ?? '');
-        await submitBulkInsuranceUpload({
-          agent_id:          user.id,
-          travel_date:       travelDate,
-          return_date:       returnDate,
-          num_travelers:     numTravellers,
-          estimated_premium: basePremium,
-          payment_amount:    totalPremium,
-          pan_no:            formData.panNo,
-          dob:               formData.dob,
-          phone:             formData.phone,
-          name:              fullName,
-          email:             formData.email,
-          proposal_response: isStatic
-            ? JSON.stringify(staticQuoteResponse ?? {})
-            : JSON.stringify(quoteResponse?.proposalResponse ?? {}),
-          file: {
-            uri:  bulkDocument.uri,
-            name: bulkDocument.name,
-            type: bulkDocument.mimeType,
-          },
-        });
-        clearLatestQuoteResult();
-        router.replace({
-          pathname: '/policy-issued',
-          params: {
-            travellerName: fullName,
-            startDate:     travelDate,
-            endDate:       returnDate,
-            premiumAmount: String(totalPremium),
-          },
-        });
-      } else if (isStatic) {
-        await api.post('/policy/requests', {
+      const isBulk = planType === 'bulk' && !!bulkDocument;
+
+      // TEMP: forcing a real ₹1 charge for testing (2026-07-09) — remove this override and
+      // restore `totalPremium` once testing is done.
+      const TEST_AMOUNT_OVERRIDE = 1;
+
+      const order = await createPaymentOrder({
+        amount:        TEST_AMOUNT_OVERRIDE,
+        customerId:    String(user.id),
+        customerPhone: formData.phone || user.phone,
+        customerEmail: formData.email || user.email,
+        customerName:  fullName || user.fullName,
+        requestType:   isBulk ? 'bulk' : 'individual',
+        requestPayload: isBulk ? undefined : (isStatic ? {
           agent_id:          user.id,
           plan_type:         planType,
           traveller_details: { ...formData },
           travel_date:       formData.startDate ?? '',
           return_date:       formData.endDate   ?? '',
           estimated_premium: basePremium,
-          payment_amount:    totalPremium,
-        });
-        clearLatestQuoteResult();
-        router.replace({
-          pathname: '/policy-issued',
-          params: {
-            travellerName: fullName,
-            startDate:     formData.startDate ?? '',
-            endDate:       formData.endDate   ?? '',
-            premiumAmount: String(totalPremium),
-          },
-        });
-      } else {
-        await api.post('/policy/requests', {
+        } : {
           agent_id:          user.id,
           plan_type:         planType,
           traveller_details,
           travel_date:       parseDateToISO(policy.fromDate ?? ''),
           return_date:       parseDateToISO(policy.toDate ?? ''),
           estimated_premium: basePremium,
-          payment_amount:    totalPremium,
-        });
-        clearLatestQuoteResult();
-        router.replace({
-          pathname: '/policy-issued',
-          params: {
-            travellerName: fullName,
-            startDate:     parseDateToISO(policy.fromDate ?? ''),
-            endDate:       parseDateToISO(policy.toDate ?? ''),
-            premiumAmount: String(totalPremium),
-          },
-        });
-      }
+        }),
+      });
+
+      pendingSubmitRef.current = isBulk ? submitBulkPolicyRequest : completeNonBulkOrder;
+      const session = new CFSession(order.payment_session_id, order.order_id, cashfreeEnvironment);
+      CFPaymentGatewayService.doWebPayment(session);
     } catch {
-      Alert.alert('Error', 'Failed to submit policy request. Please try again.');
-    } finally {
       setIsSubmitting(false);
+      Alert.alert('Error', 'Failed to start payment. Please try again.');
     }
   }
 
@@ -242,9 +308,7 @@ export default function QuoteScreen() {
                     )}
                   </View>
                   <Text className="mt-2 text-sm font-medium text-slate-600">
-                    {isStatic
-                      ? staticQuoteResponse?.product
-                      : `${policy.travelplan} for ${policy.areaplan}`}
+                    Trip Secure Program
                   </Text>
                 </View>
 
@@ -278,7 +342,7 @@ export default function QuoteScreen() {
             <SectionCard title="Policy Details" icon={<Ticket size={22} color="#0C4A6E" strokeWidth={2.2} />}>
               {isStatic ? (
                 <>
-                  <DetailRow label="Product"      value={staticQuoteResponse?.product} />
+                  <DetailRow label="Product"      value="Trip Secure Program" />
                   <DetailRow label="No of days"   value={String(staticQuoteResponse?.no_of_days ?? '')} />
                   <DetailRow label="Travel dates" value={`${formData.startDate ?? ''} to ${formData.endDate ?? ''}`} />
                   <DetailRow label="Plan type"    value={planType} />
@@ -328,7 +392,7 @@ export default function QuoteScreen() {
           <Pressable
             className="h-14 flex-row items-center justify-center rounded-[22px] bg-orange-500"
             style={styles.buttonShadow}
-            onPress={submitPolicyRequest}
+            onPress={startPayment}
             disabled={isSubmitting}
           >
             {isSubmitting ? (

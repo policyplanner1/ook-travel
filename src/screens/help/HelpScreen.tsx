@@ -11,7 +11,7 @@ const faqs = [
   {
     question: 'How much commission will I receive?',
     answer:
-      'You will earn 25% of the total premium amount collected during the month. Commission is calculated on the net premium after applicable taxes and is credited directly to your registered bank account.',
+      'You will earn 15% of the total premium amount collected during the month. Commission is calculated on the net premium after applicable taxes and is credited directly to your registered bank account.',
   },
   {
     question: 'When will I receive my commission?',

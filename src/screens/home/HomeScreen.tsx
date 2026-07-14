@@ -686,9 +686,9 @@ export default function HomeScreen() {
                   <Text className="mb-4 text-xs font-bold uppercase tracking-widest text-sky-800">
                     Maa Pranaam Fortune LLP
                   </Text>
-                  <Text className="text-5xl font-bold tracking-[2px] text-sky-950">Make Your Trip</Text>
+                  <Text className="text-5xl font-bold tracking-[2px] text-sky-950" style={styles.titleShadow}>Make Your Trip</Text>
                   <Text
-                    className="mt-2 text-center text-6xl font-extrabold leading-[54px] tracking-[2px] text-white"
+                    className="mt-2 text-center text-5xl font-bold leading-[54px] tracking-[2px] text-sky-950"
                     style={styles.titleShadow}
                   >
                     SECURE
