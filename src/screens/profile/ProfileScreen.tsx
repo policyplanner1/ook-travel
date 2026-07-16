@@ -1,10 +1,12 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import { router } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
   BadgeCheck,
   Camera,
+  FileText,
   LogOut,
   Mail,
   Pencil,
@@ -17,6 +19,7 @@ import {
   Alert,
   Image,
   ImageBackground,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -29,23 +32,43 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { saveBankDetails } from '@/services/bank-details.service';
 import { useAuth } from '@/store/auth';
-import type { AuthUser, BankDetails } from '@/types/auth';
+import type { AuthUser, BankDetails, PickedDocument } from '@/types/auth';
 
 const initialBankDetails: BankDetails = {
   accountHolderName: '',
   bankName: '',
   accountNumber: '',
   ifscCode: '',
-  branchName: '',
+  aadharCardNumber: '',
   panCardNumber: '',
+  bankDocumentUrl: null,
+  aadharDocumentUrl: null,
+  panDocumentUrl: null,
 };
+
+const allowedDocumentTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+type DocumentSlot = 'bankDocument' | 'aadharDocument' | 'panDocument';
+
+const documentSlots: Array<{ key: DocumentSlot; label: string; existingUrlKey: keyof BankDetails }> = [
+  { key: 'bankDocument', label: 'Bank Passbook / Cancelled Cheque', existingUrlKey: 'bankDocumentUrl' },
+  { key: 'aadharDocument', label: 'Aadhar Card', existingUrlKey: 'aadharDocumentUrl' },
+  { key: 'panDocument', label: 'PAN Card', existingUrlKey: 'panDocumentUrl' },
+];
 
 function hasAnyBankDetail(details: BankDetails | null | undefined) {
   if (!details) {
     return false;
   }
 
-  return Object.values(details).some((value) => value.trim().length > 0);
+  return (
+    details.accountHolderName.trim().length > 0 ||
+    details.bankName.trim().length > 0 ||
+    details.accountNumber.trim().length > 0 ||
+    details.ifscCode.trim().length > 0 ||
+    details.aadharCardNumber.trim().length > 0 ||
+    details.panCardNumber.trim().length > 0
+  );
 }
 
 export default function ProfileScreen() {
@@ -61,6 +84,12 @@ export default function ProfileScreen() {
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingBankDetails, setIsSavingBankDetails] = useState(false);
+  const [pickedDocuments, setPickedDocuments] = useState<Record<DocumentSlot, PickedDocument | null>>({
+    bankDocument: null,
+    aadharDocument: null,
+    panDocument: null,
+  });
+  const [isPickingDocument, setIsPickingDocument] = useState<DocumentSlot | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -151,7 +180,7 @@ export default function ProfileScreen() {
 
   function handleBankDetailChange<K extends keyof BankDetails>(key: K, value: BankDetails[K]) {
     const normalizedValue =
-      key === 'accountNumber'
+      key === 'accountNumber' || key === 'aadharCardNumber'
         ? String(value).replace(/\D/g, '')
         : key === 'ifscCode' || key === 'panCardNumber'
           ? String(value).toUpperCase()
@@ -166,11 +195,45 @@ export default function ProfileScreen() {
   function openBankDetailsModal() {
     setBankDetails(user?.bankDetails ?? initialBankDetails);
     setConfirmAccountNumber(user?.bankDetails?.accountNumber ?? '');
+    setPickedDocuments({ bankDocument: null, aadharDocument: null, panDocument: null });
     setIsBankDetailsModalVisible(true);
   }
 
   function closeBankDetailsModal() {
     setIsBankDetailsModalVisible(false);
+  }
+
+  async function handlePickDocument(slot: DocumentSlot) {
+    try {
+      setIsPickingDocument(slot);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: allowedDocumentTypes,
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setPickedDocuments((current) => ({
+        ...current,
+        [slot]: {
+          uri: asset.uri,
+          name: asset.name ?? `${slot}.jpg`,
+          mimeType: asset.mimeType ?? null,
+        },
+      }));
+    } catch (error) {
+      Alert.alert('Upload failed', 'Unable to pick the document right now. Please try again.');
+    } finally {
+      setIsPickingDocument(null);
+    }
+  }
+
+  function handleRemovePickedDocument(slot: DocumentSlot) {
+    setPickedDocuments((current) => ({ ...current, [slot]: null }));
   }
 
   async function handleSaveBankDetails() {
@@ -183,7 +246,7 @@ export default function ProfileScreen() {
       bankName: bankDetails.bankName.trim(),
       accountNumber: bankDetails.accountNumber.trim(),
       ifscCode: bankDetails.ifscCode.trim().toUpperCase(),
-      branchName: bankDetails.branchName.trim(),
+      aadharCardNumber: bankDetails.aadharCardNumber.trim(),
       panCardNumber: bankDetails.panCardNumber.trim().toUpperCase(),
     };
 
@@ -207,9 +270,25 @@ export default function ProfileScreen() {
       return;
     }
 
+    if (!/^\d{12}$/.test(trimmedDetails.aadharCardNumber)) {
+      Alert.alert('Invalid Aadhar number', 'Please enter a valid 12-digit Aadhar card number.');
+      return;
+    }
+
     if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(trimmedDetails.panCardNumber)) {
       Alert.alert('Invalid PAN', 'Please enter a valid PAN card number.');
       return;
+    }
+
+    const isEdit = Boolean(user.bankDetails);
+
+    // First-time save requires every KYC document; edits may keep whatever was uploaded before.
+    if (!isEdit) {
+      const missingDocument = documentSlots.find((slot) => !pickedDocuments[slot.key]);
+      if (missingDocument) {
+        Alert.alert('Missing document', `Please upload your ${missingDocument.label}.`);
+        return;
+      }
     }
 
     try {
@@ -217,7 +296,8 @@ export default function ProfileScreen() {
       const savedBankDetails = await saveBankDetails({
         agentId: user.id,
         bankDetails: trimmedDetails,
-        isEdit: Boolean(user.bankDetails),
+        documents: pickedDocuments,
+        isEdit,
       });
 
       updateBankDetails(savedBankDetails);
@@ -379,11 +459,37 @@ export default function ProfileScreen() {
                     value={displayedBankDetails.accountNumber}
                   />
                   <BankDetailRow label="IFSC Code" value={displayedBankDetails.ifscCode} />
-                  <BankDetailRow label="Branch Name" value={displayedBankDetails.branchName} />
+                  <BankDetailRow label="Aadhar Card Number" value={displayedBankDetails.aadharCardNumber} />
                   <BankDetailRow
                     label="PAN Card Number"
                     value={displayedBankDetails.panCardNumber}
                   />
+                </View>
+
+                <View className="mt-4 gap-2">
+                  {documentSlots.map((slot) => {
+                    const url = displayedBankDetails[slot.existingUrlKey] as string | null;
+                    return (
+                      <Pressable
+                        key={slot.key}
+                        onPress={() => url && Linking.openURL(url)}
+                        disabled={!url}
+                        className="flex-row items-center rounded-[18px] bg-white px-4 py-3"
+                      >
+                        <FileText size={16} color={url ? '#0C4A6E' : '#CBD5E1'} strokeWidth={2.2} />
+                        <Text
+                          className={`ml-2 flex-1 text-sm font-semibold ${
+                            url ? 'text-sky-900 underline' : 'text-slate-400'
+                          }`}
+                        >
+                          {slot.label}
+                        </Text>
+                        <Text className="text-xs font-medium text-slate-400">
+                          {url ? 'View' : 'Not uploaded'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             ) : (
@@ -485,9 +591,11 @@ export default function ProfileScreen() {
                     autoCapitalize="characters"
                   />
                   <ProfileInput
-                    label="Branch Name"
-                    value={bankDetails.branchName}
-                    onChangeText={(value) => handleBankDetailChange('branchName', value)}
+                    label="Aadhar Card Number"
+                    value={bankDetails.aadharCardNumber}
+                    onChangeText={(value) => handleBankDetailChange('aadharCardNumber', value)}
+                    keyboardType="number-pad"
+                    maxLength={12}
                   />
                   <ProfileInput
                     label="PAN Card Number"
@@ -495,6 +603,61 @@ export default function ProfileScreen() {
                     onChangeText={(value) => handleBankDetailChange('panCardNumber', value)}
                     autoCapitalize="characters"
                   />
+
+                  <View className="mt-2">
+                    <Text className="mb-2 text-sm font-bold text-slate-700">KYC Documents</Text>
+                    <View className="gap-3">
+                      {documentSlots.map((slot) => {
+                        const picked = pickedDocuments[slot.key];
+                        const existingUrl = bankDetails[slot.existingUrlKey] as string | null;
+
+                        return (
+                          <View
+                            key={slot.key}
+                            className="rounded-[20px] border border-sky-100 bg-white px-4 py-4"
+                          >
+                            <Text className="text-sm font-semibold text-slate-700">{slot.label}</Text>
+
+                            <Pressable
+                              onPress={() => handlePickDocument(slot.key)}
+                              disabled={isPickingDocument === slot.key}
+                              className="mt-3 rounded-2xl bg-sky-100 px-4 py-3"
+                            >
+                              <Text className="text-center text-sm font-extrabold text-sky-900">
+                                {isPickingDocument === slot.key
+                                  ? 'Opening...'
+                                  : picked || existingUrl
+                                    ? 'Replace File'
+                                    : 'Choose File'}
+                              </Text>
+                            </Pressable>
+
+                            {picked ? (
+                              <View className="mt-3 flex-row items-center rounded-xl bg-slate-50 px-3 py-2.5">
+                                <FileText size={16} color="#0C4A6E" strokeWidth={2.2} />
+                                <Text
+                                  className="ml-2 flex-1 text-xs font-semibold text-slate-700"
+                                  numberOfLines={1}
+                                >
+                                  {picked.name}
+                                </Text>
+                                <Pressable
+                                  onPress={() => handleRemovePickedDocument(slot.key)}
+                                  className="ml-2 h-7 w-7 items-center justify-center rounded-full bg-slate-200"
+                                >
+                                  <X size={14} color="#475569" strokeWidth={2.4} />
+                                </Pressable>
+                              </View>
+                            ) : existingUrl ? (
+                              <Text className="mt-2 text-xs font-medium text-slate-400">
+                                Already uploaded — choose a file to replace it.
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
                 </View>
               </ScrollView>
 

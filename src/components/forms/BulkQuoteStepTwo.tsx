@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  MapPin,
   Minus,
   Plus,
   Users,
@@ -31,8 +32,11 @@ type Props = {
   form: CustomerDetailsFormData;
   travelForm: TravelQuoteFormData;
   onChange: <K extends keyof CustomerDetailsFormData>(key: K, value: CustomerDetailsFormData[K]) => void;
+  cities: string[];
   openPanel: OpenPanel;
   onTogglePanel: (panel: Exclude<OpenPanel, null>) => void;
+  onDestinationQueryChange: (value: string) => void;
+  onSelectDestination: (city: string) => void;
   onDayPress: (day: DateData) => void;
   onChangeTraveller: (type: TravelerType, delta: number) => void;
   isFetchingCkyc?: boolean;
@@ -55,8 +59,11 @@ export function BulkQuoteStepTwo({
   form,
   travelForm,
   onChange,
+  cities,
   openPanel,
   onTogglePanel,
+  onDestinationQueryChange,
+  onSelectDestination,
   onDayPress,
   onChangeTraveller,
   isFetchingCkyc,
@@ -168,6 +175,73 @@ export function BulkQuoteStepTwo({
             className="min-h-14 rounded-md bg-white px-4 py-4 text-base text-slate-700"
             style={styles.fieldShadow}
           />
+        </View>
+
+        {/* Destination */}
+        <View>
+          <Text className="mb-2 ml-1 text-sm font-bold text-sky-950">Destination</Text>
+          <Pressable
+            className="min-h-14 flex-row items-center rounded-md bg-white px-4 py-4"
+            style={styles.fieldShadow}
+            onPress={() => onTogglePanel('destination')}
+          >
+            <MapPin size={20} color="#94A3B8" strokeWidth={2.2} />
+            <Text
+              className={`ml-3 flex-1 text-base ${
+                travelForm.selectedDestination ? 'text-slate-700' : 'text-slate-400'
+              }`}
+            >
+              {travelForm.selectedDestination || 'Select Your Destination'}
+            </Text>
+            {openPanel === 'destination' ? (
+              <ChevronUp size={20} color="#64748B" />
+            ) : (
+              <ChevronDown size={20} color="#64748B" />
+            )}
+          </Pressable>
+
+          {openPanel === 'destination' ? (
+            <View className="mt-2 rounded-md bg-white p-4" style={styles.fieldShadow}>
+              <TextInput
+                value={travelForm.destinationQuery}
+                onChangeText={onDestinationQueryChange}
+                placeholder="Type a city name"
+                placeholderTextColor="#94A3B8"
+                className="rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-700"
+              />
+              <View className="mt-3 gap-2">
+                {(() => {
+                  const query = travelForm.destinationQuery.trim();
+                  const hasExactMatch = cities.some(
+                    (city) => city.toLowerCase() === query.toLowerCase()
+                  );
+
+                  return query && !hasExactMatch ? (
+                    <Pressable
+                      onPress={() => onSelectDestination(query)}
+                      className="rounded-xl border border-dashed border-orange-300 bg-orange-50 px-4 py-3"
+                    >
+                      <Text className="text-base font-semibold text-orange-700">
+                        Use "{query}"
+                      </Text>
+                    </Pressable>
+                  ) : null;
+                })()}
+                {cities.slice(0, 6).map((city) => (
+                  <Pressable
+                    key={city}
+                    onPress={() => onSelectDestination(city)}
+                    className="rounded-xl bg-slate-50 px-4 py-3"
+                  >
+                    <Text className="text-base font-semibold text-slate-700">{city}</Text>
+                  </Pressable>
+                ))}
+                {cities.length === 0 && !travelForm.destinationQuery.trim() ? (
+                  <Text className="px-1 py-2 text-sm text-slate-500">No matching cities found.</Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {/* Travel Dates */}

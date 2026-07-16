@@ -99,12 +99,12 @@ export default function QuoteScreen() {
   const { quoteResponse, staticQuoteResponse, formData, planType, totalTravellers, bulkDocument, mode } = stored;
   const isStatic = mode === 'static';
 
-  const PLATFORM_FEE = 50;
+  const SERVICE_CHARGE = 50;
   const basePremium = isStatic
     ? (staticQuoteResponse?.details.premium ?? 0)
     : (Number(quoteResponse?.premiumAmount) || 0);
   const numTravellers = planType === 'bulk' ? (totalTravellers ?? 1) : 1;
-  const totalPremium = basePremium * numTravellers + PLATFORM_FEE;
+  const totalPremium = basePremium * numTravellers + SERVICE_CHARGE * numTravellers;
 
   const partner = !isStatic
     ? (quoteResponse?.proposalResponse?.pTrvPartnerDtls_inout ?? {} as Partial<import('@/types/quote').ProposalPartnerDetails>)
@@ -238,7 +238,7 @@ export default function QuoteScreen() {
         requestPayload: isBulk ? undefined : (isStatic ? {
           agent_id:          user.id,
           plan_type:         planType,
-          traveller_details: { ...formData },
+          traveller_details: { ...formData, destinationQuery: undefined },
           travel_date:       formData.startDate ?? '',
           return_date:       formData.endDate   ?? '',
           estimated_premium: basePremium,
@@ -301,15 +301,12 @@ export default function QuoteScreen() {
                   <View className="mt-2 flex-row items-center gap-1">
                     {planType === 'bulk' && numTravellers > 1 ? (
                       <Text className="text-xs text-slate-400">
-                        Rs. {basePremium} × {numTravellers} travellers + Rs. 50 platform fee
+                        (Rs. {basePremium} + Rs. 50 service charge) × {numTravellers} travellers
                       </Text>
                     ) : (
-                      <Text className="text-xs text-slate-400">Rs. {basePremium} + Rs. 50 platform fee</Text>
+                      <Text className="text-xs text-slate-400">Rs. {basePremium} + Rs. 50 service charge</Text>
                     )}
-                  </View>
-                  <Text className="mt-2 text-sm font-medium text-slate-600">
-                    Trip Secure Program
-                  </Text>
+                  </View>                 
                 </View>
 
                 <View className="rounded-[22px] bg-emerald-50 p-4">

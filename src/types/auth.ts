@@ -3,8 +3,17 @@ export type BankDetails = {
   bankName: string;
   accountNumber: string;
   ifscCode: string;
-  branchName: string;
+  aadharCardNumber: string;
   panCardNumber: string;
+  bankDocumentUrl: string | null;
+  aadharDocumentUrl: string | null;
+  panDocumentUrl: string | null;
+};
+
+export type PickedDocument = {
+  uri: string;
+  name: string;
+  mimeType: string | null;
 };
 
 export type AuthUser = {

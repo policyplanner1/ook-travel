@@ -61,7 +61,7 @@ export function QuoteStepOne({
       </Text>
 
       <View className="w-full gap-3">
-        {/* <View>
+        <View>
           <Pressable
             className="min-h-16 flex-row items-center rounded-md bg-white px-4 py-4"
             style={styles.fieldShadow}
@@ -92,6 +92,23 @@ export function QuoteStepOne({
                 className="rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-700"
               />
               <View className="mt-3 gap-2">
+                {(() => {
+                  const query = form.destinationQuery.trim();
+                  const hasExactMatch = cities.some(
+                    (city) => city.toLowerCase() === query.toLowerCase()
+                  );
+
+                  return query && !hasExactMatch ? (
+                    <Pressable
+                      onPress={() => onSelectDestination(query)}
+                      className="rounded-xl border border-dashed border-orange-300 bg-orange-50 px-4 py-3"
+                    >
+                      <Text className="text-base font-semibold text-orange-700">
+                        Use "{query}"
+                      </Text>
+                    </Pressable>
+                  ) : null;
+                })()}
                 {cities.slice(0, 6).map((city) => (
                   <Pressable
                     key={city}
@@ -101,13 +118,13 @@ export function QuoteStepOne({
                     <Text className="text-base font-semibold text-slate-700">{city}</Text>
                   </Pressable>
                 ))}
-                {cities.length === 0 ? (
+                {cities.length === 0 && !form.destinationQuery.trim() ? (
                   <Text className="px-1 py-2 text-sm text-slate-500">No matching cities found.</Text>
                 ) : null}
               </View>
             </View>
           ) : null}
-        </View> */}
+        </View>
 
         <View>
           <Pressable

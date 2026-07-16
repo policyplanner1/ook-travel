@@ -244,6 +244,7 @@ export type PolicyRequest = {
   id: number;
   request_number: string;
   traveler_name: string;
+  destination: string | null;
   travel_date: string | null;
   return_date: string | null;
   estimated_premium: string | null;

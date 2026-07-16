@@ -37,15 +37,17 @@ type AuthApiAgent = {
   bank_account?: string;
   bankName?: string;
   bank_name?: string;
-  branchName?: string;
-  branch_name?: string;
-  bank_branch?: string;
+  aadharCardNumber?: string;
+  aadhar_number?: string;
   ifscCode?: string;
   ifsc_code?: string;
   bank_ifsc?: string;
   panCardNumber?: string;
   pan_card_number?: string;
   pan?: string;
+  bank_document?: string | null;
+  aadhar_document?: string | null;
+  pan_document?: string | null;
   bankDetails?: {
     accountHolderName?: string;
     account_holder_name?: string;
@@ -55,8 +57,8 @@ type AuthApiAgent = {
     account_number?: string;
     ifscCode?: string;
     ifsc_code?: string;
-    branchName?: string;
-    branch_name?: string;
+    aadharCardNumber?: string;
+    aadhar_number?: string;
     panCardNumber?: string;
     pan_card_number?: string;
   };
@@ -69,8 +71,8 @@ type AuthApiAgent = {
     account_number?: string;
     ifscCode?: string;
     ifsc_code?: string;
-    branchName?: string;
-    branch_name?: string;
+    aadharCardNumber?: string;
+    aadhar_number?: string;
     panCardNumber?: string;
     pan_card_number?: string;
   };
@@ -145,12 +147,11 @@ function mapAgentBankDetails(agent: AuthApiAgent): BankDetails | null {
     nestedBankDetails?.ifscCode ??
     nestedBankDetails?.ifsc_code ??
     '';
-  const branchName =
-    agent.branchName ??
-    agent.branch_name ??
-    agent.bank_branch ??
-    nestedBankDetails?.branchName ??
-    nestedBankDetails?.branch_name ??
+  const aadharCardNumber =
+    agent.aadharCardNumber ??
+    agent.aadhar_number ??
+    nestedBankDetails?.aadharCardNumber ??
+    nestedBankDetails?.aadhar_number ??
     '';
   const panCardNumber =
     agent.panCardNumber ??
@@ -165,7 +166,7 @@ function mapAgentBankDetails(agent: AuthApiAgent): BankDetails | null {
     !bankName.trim() &&
     !accountNumber.trim() &&
     !ifscCode.trim() &&
-    !branchName.trim() &&
+    !aadharCardNumber.trim() &&
     !panCardNumber.trim()
   ) {
     return null;
@@ -176,8 +177,11 @@ function mapAgentBankDetails(agent: AuthApiAgent): BankDetails | null {
     bankName: bankName.trim(),
     accountNumber: accountNumber.trim(),
     ifscCode: ifscCode.trim().toUpperCase(),
-    branchName: branchName.trim(),
+    aadharCardNumber: aadharCardNumber.trim(),
     panCardNumber: panCardNumber.trim().toUpperCase(),
+    bankDocumentUrl: resolveApiAssetUrl(agent.bank_document),
+    aadharDocumentUrl: resolveApiAssetUrl(agent.aadhar_document),
+    panDocumentUrl: resolveApiAssetUrl(agent.pan_document),
   };
 }
 

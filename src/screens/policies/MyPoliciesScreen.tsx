@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
+  MapPin,
   Search,
   Users,
   UserRound,
@@ -239,6 +240,13 @@ function RequestCard({ request }: { request: PolicyRequest }) {
           <UserRound size={18} color="#3B82F6" strokeWidth={2.2} />
           <Text className="ml-2 text-sm font-medium text-slate-600">{request.request_number}</Text>
         </View>
+
+        {request.destination ? (
+          <View className="mt-2 flex-row items-center">
+            <MapPin size={18} color="#3B82F6" strokeWidth={2.2} />
+            <Text className="ml-2 text-sm font-medium text-slate-600">{request.destination}</Text>
+          </View>
+        ) : null}
 
         <View className="mt-2 flex-row items-center">
           <CalendarDays size={18} color="#3B82F6" strokeWidth={2.2} />

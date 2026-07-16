@@ -209,13 +209,8 @@ export default function HomeScreen() {
   }
 
   function goToDetailsStep() {
-    // if (!travelForm.selectedDestination || !travelForm.startDate || !travelForm.endDate) {
-    //   Alert.alert('Missing details', 'Please select destination and travel dates before continuing.');
-    //   return;
-    // }
-
-        if (!travelForm.startDate || !travelForm.endDate) {
-      Alert.alert('Missing details', 'Please select travel dates before continuing.');
+    if (!travelForm.selectedDestination || !travelForm.startDate || !travelForm.endDate) {
+      Alert.alert('Missing details', 'Please select destination and travel dates before continuing.');
       return;
     }
 
@@ -543,6 +538,11 @@ export default function HomeScreen() {
       return;
     }
 
+    if (!travelForm.selectedDestination) {
+      Alert.alert('Destination required', 'Please select a destination before submitting.');
+      return;
+    }
+
     if (!travelForm.startDate || !travelForm.endDate) {
       Alert.alert('Dates required', 'Please select travel dates before submitting.');
       return;
@@ -784,8 +784,13 @@ export default function HomeScreen() {
                     form={customerForm}
                     travelForm={travelForm}
                     onChange={handleCustomerChange}
+                    cities={filteredCities}
                     openPanel={openPanel}
                     onTogglePanel={togglePanel}
+                    onDestinationQueryChange={(value) =>
+                      setTravelForm((current) => ({ ...current, destinationQuery: value }))
+                    }
+                    onSelectDestination={selectDestination}
                     onDayPress={onDayPress}
                     onChangeTraveller={changeTraveller}
                     isFetchingCkyc={isFetchingCkyc}

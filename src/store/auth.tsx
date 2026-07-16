@@ -119,14 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return {
         ...current,
-        bankDetails: {
-          accountHolderName: payload.accountHolderName.trim(),
-          bankName: payload.bankName.trim(),
-          accountNumber: payload.accountNumber.trim(),
-          ifscCode: payload.ifscCode.trim().toUpperCase(),
-          branchName: payload.branchName.trim(),
-          panCardNumber: payload.panCardNumber.trim().toUpperCase(),
-        },
+        bankDetails: payload,
       };
     });
   }
