@@ -340,6 +340,7 @@ export default function QuoteScreen() {
               {isStatic ? (
                 <>
                   <DetailRow label="Product"      value="Trip Secure Program" />
+                  <DetailRow label="Cover amount" value="Rs. 10,00,000" />
                   <DetailRow label="No of days"   value={String(staticQuoteResponse?.no_of_days ?? '')} />
                   <DetailRow label="Travel dates" value={`${formData.startDate ?? ''} to ${formData.endDate ?? ''}`} />
                   <DetailRow label="Plan type"    value={planType} />
