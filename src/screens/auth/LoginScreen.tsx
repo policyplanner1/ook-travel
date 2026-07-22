@@ -14,19 +14,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff, LockKeyhole, Mail, MoveRight } from 'lucide-react-native';
+import { Eye, EyeOff, LockKeyhole, MoveRight, UserRound } from 'lucide-react-native';
 
 import { useAuth } from '@/store/auth';
 
 export default function LoginScreen() {
   const { isLoading, login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   async function handleLogin() {
     try {
-      await login({ email, password });
+      await login({ identifier, password });
       router.replace('/');
     } catch (error) {
       Alert.alert(
@@ -72,11 +72,10 @@ export default function LoginScreen() {
             <View className="mt-8 rounded-[34px] bg-white/80 px-4 py-5" style={styles.cardShadow}>
               <View className="gap-4">
                 <AuthField
-                  icon={<Mail color="#94A3B8" size={20} strokeWidth={2.2} />}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="abc@gmail.com"
-                  keyboardType="email-address"
+                  icon={<UserRound color="#94A3B8" size={20} strokeWidth={2.2} />}
+                  value={identifier}
+                  onChangeText={setIdentifier}
+                  placeholder="Email or mobile number"
                   autoCapitalize="none"
                   autoCorrect={false}
                 />

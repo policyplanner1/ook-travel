@@ -227,12 +227,12 @@ function getAuthErrorMessage(error: unknown, fallbackMessage: string) {
 
 export async function loginWithApi(payload: LoginPayload): Promise<AuthUser> {
   const requestBody = {
-    email: payload.email.trim().toLowerCase(),
+    identifier: payload.identifier.trim().toLowerCase(),
     password: payload.password,
   };
 
-  if (!requestBody.email || !requestBody.password.trim()) {
-    throw new Error('Email and password are required.');
+  if (!requestBody.identifier || !requestBody.password.trim()) {
+    throw new Error('Email/mobile number and password are required.');
   }
 
   console.log('Login request:', {
