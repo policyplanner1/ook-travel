@@ -229,7 +229,7 @@ export default function QuoteScreen() {
       const TEST_AMOUNT_OVERRIDE = 1;
 
       const order = await createPaymentOrder({
-        amount:        TEST_AMOUNT_OVERRIDE,
+        amount:        totalPremium,
         customerId:    String(user.id),
         customerPhone: formData.phone || user.phone,
         customerEmail: formData.email || user.email,

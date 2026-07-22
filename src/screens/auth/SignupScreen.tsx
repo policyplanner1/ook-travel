@@ -31,6 +31,51 @@ import { sendSignupOtp, verifySignupOtp } from '@/services/auth.service';
 
 type SignupStep = 'form' | 'otp';
 
+type SignupField = 'fullName' | 'email' | 'phone' | 'password' | 'confirmPassword';
+
+type FieldErrors = Partial<Record<SignupField, string>>;
+
+// Mirrors ookTravel_backend/src/validators/auth.validator.js -> agentSignupRules
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[6-9]\d{9}$/;
+const PASSWORD_PATTERN_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/;
+
+function validateFullName(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Full name is required';
+  if (trimmed.length < 2 || trimmed.length > 100) return 'Full name must be 2-100 characters';
+  return undefined;
+}
+
+function validateEmail(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Email is required';
+  if (!EMAIL_REGEX.test(trimmed)) return 'Valid email required';
+  return undefined;
+}
+
+function validatePhone(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Phone number is required';
+  if (!PHONE_REGEX.test(trimmed)) return 'Valid 10-digit Indian mobile number required';
+  return undefined;
+}
+
+function validatePassword(value: string): string | undefined {
+  if (!value) return 'Password is required';
+  if (value.length < 8) return 'Password must be at least 8 characters';
+  if (!PASSWORD_PATTERN_REGEX.test(value)) {
+    return 'Password must contain uppercase, lowercase, number and special character';
+  }
+  return undefined;
+}
+
+function validateConfirmPassword(value: string, password: string): string | undefined {
+  if (!value) return 'Please confirm your password';
+  if (value !== password) return 'Passwords do not match';
+  return undefined;
+}
+
 export default function SignupScreen() {
   const { isLoading, signup } = useAuth();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -43,6 +88,7 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -92,6 +138,64 @@ export default function SignupScreen() {
     };
   }, []);
 
+  function handleFullNameChange(value: string) {
+    setFullName(value);
+    if (errors.fullName) {
+      setErrors((prev) => ({ ...prev, fullName: validateFullName(value) }));
+    }
+  }
+
+  function handleEmailChange(value: string) {
+    setEmail(value);
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+    }
+  }
+
+  function handlePhoneChange(value: string) {
+    setPhone(value);
+    if (errors.phone) {
+      setErrors((prev) => ({ ...prev, phone: validatePhone(value) }));
+    }
+  }
+
+  function handlePasswordChange(value: string) {
+    setPassword(value);
+    if (errors.password) {
+      setErrors((prev) => ({ ...prev, password: validatePassword(value) }));
+    }
+    if (errors.confirmPassword) {
+      setErrors((prev) => ({ ...prev, confirmPassword: validateConfirmPassword(confirmPassword, value) }));
+    }
+  }
+
+  function handleConfirmPasswordChange(value: string) {
+    setConfirmPassword(value);
+    if (errors.confirmPassword) {
+      setErrors((prev) => ({ ...prev, confirmPassword: validateConfirmPassword(value, password) }));
+    }
+  }
+
+  function handleFullNameBlur() {
+    setErrors((prev) => ({ ...prev, fullName: validateFullName(fullName) }));
+  }
+
+  function handleEmailBlur() {
+    setErrors((prev) => ({ ...prev, email: validateEmail(email) }));
+  }
+
+  function handlePhoneBlur() {
+    setErrors((prev) => ({ ...prev, phone: validatePhone(phone) }));
+  }
+
+  function handlePasswordBlur() {
+    setErrors((prev) => ({ ...prev, password: validatePassword(password) }));
+  }
+
+  function handleConfirmPasswordBlur() {
+    setErrors((prev) => ({ ...prev, confirmPassword: validateConfirmPassword(confirmPassword, password) }));
+  }
+
   async function handleSendOtp() {
     if (!hasAcceptedTerms || !hasAcceptedPrivacy) {
       Alert.alert(
@@ -101,13 +205,21 @@ export default function SignupScreen() {
       return;
     }
 
-    if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert('Missing fields', 'Please complete all fields before sending OTP.');
-      return;
-    }
+    const nextErrors: FieldErrors = {
+      fullName: validateFullName(fullName),
+      email: validateEmail(email),
+      phone: validatePhone(phone),
+      password: validatePassword(password),
+      confirmPassword: validateConfirmPassword(confirmPassword, password),
+    };
+    setErrors(nextErrors);
 
-    if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'Password and confirm password must match.');
+    const firstInvalidField = (
+      ['fullName', 'email', 'phone', 'password', 'confirmPassword'] as const
+    ).find((field) => nextErrors[field]);
+
+    if (firstInvalidField) {
+      scrollToField(firstInvalidField);
       return;
     }
 
@@ -195,41 +307,64 @@ export default function SignupScreen() {
               <AuthField
                 icon={<UserRound color="#94A3B8" size={20} strokeWidth={2.2} />}
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={handleFullNameChange}
+                onBlur={handleFullNameBlur}
                 placeholder="Full name"
                 onFocus={() => scrollToField('fullName')}
+                hasError={Boolean(errors.fullName)}
               />
+              {errors.fullName ? (
+                <Text className="mt-1.5 ml-1 text-[13px] font-medium text-red-500">
+                  {errors.fullName}
+                </Text>
+              ) : null}
             </View>
             <View onLayout={(event) => registerFieldPosition('email', event.nativeEvent.layout.y)}>
               <AuthField
                 icon={<Mail color="#94A3B8" size={20} strokeWidth={2.2} />}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={handleEmailChange}
+                onBlur={handleEmailBlur}
                 placeholder="Email address"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 onFocus={() => scrollToField('email')}
+                hasError={Boolean(errors.email)}
               />
+              {errors.email ? (
+                <Text className="mt-1.5 ml-1 text-[13px] font-medium text-red-500">
+                  {errors.email}
+                </Text>
+              ) : null}
             </View>
             <View onLayout={(event) => registerFieldPosition('phone', event.nativeEvent.layout.y)}>
               <AuthField
                 icon={<Phone color="#94A3B8" size={20} strokeWidth={2.2} />}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={handlePhoneChange}
+                onBlur={handlePhoneBlur}
                 placeholder="Phone number"
                 keyboardType="phone-pad"
                 onFocus={() => scrollToField('phone')}
+                hasError={Boolean(errors.phone)}
               />
+              {errors.phone ? (
+                <Text className="mt-1.5 ml-1 text-[13px] font-medium text-red-500">
+                  {errors.phone}
+                </Text>
+              ) : null}
             </View>
             <View onLayout={(event) => registerFieldPosition('password', event.nativeEvent.layout.y)}>
               <AuthField
                 icon={<LockKeyhole color="#94A3B8" size={20} strokeWidth={2.2} />}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={handlePasswordChange}
+                onBlur={handlePasswordBlur}
                 placeholder="Password"
                 secureTextEntry={!isPasswordVisible}
                 onFocus={() => scrollToField('password')}
+                hasError={Boolean(errors.password)}
                 rightIcon={
                   isPasswordVisible ? (
                     <Eye color="#A8B1C7" size={20} strokeWidth={2.2} />
@@ -242,6 +377,11 @@ export default function SignupScreen() {
                   isPasswordVisible ? 'Hide password' : 'Show password'
                 }
               />
+              {errors.password ? (
+                <Text className="mt-1.5 ml-1 text-[13px] font-medium text-red-500">
+                  {errors.password}
+                </Text>
+              ) : null}
             </View>
             <View
               onLayout={(event) =>
@@ -251,10 +391,12 @@ export default function SignupScreen() {
               <AuthField
                 icon={<LockKeyhole color="#94A3B8" size={20} strokeWidth={2.2} />}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={handleConfirmPasswordChange}
+                onBlur={handleConfirmPasswordBlur}
                 placeholder="Confirm password"
                 secureTextEntry={!isConfirmPasswordVisible}
                 onFocus={() => scrollToField('confirmPassword')}
+                hasError={Boolean(errors.confirmPassword)}
                 rightIcon={
                   isConfirmPasswordVisible ? (
                     <Eye color="#A8B1C7" size={20} strokeWidth={2.2} />
@@ -267,6 +409,11 @@ export default function SignupScreen() {
                   isConfirmPasswordVisible ? 'Hide confirm password' : 'Show confirm password'
                 }
               />
+              {errors.confirmPassword ? (
+                <Text className="mt-1.5 ml-1 text-[13px] font-medium text-red-500">
+                  {errors.confirmPassword}
+                </Text>
+              ) : null}
             </View>
           </View>
 
@@ -481,17 +628,19 @@ function AuthField({
   rightIcon,
   onPressRightIcon,
   rightIconAccessibilityLabel,
+  hasError,
   ...props
 }: ComponentProps<typeof TextInput> & {
   icon: ReactNode;
   rightIcon?: ReactNode;
   onPressRightIcon?: () => void;
   rightIconAccessibilityLabel?: string;
+  hasError?: boolean;
 }) {
   return (
     <View
       className="flex-row items-center rounded-[16px] border bg-white/95 px-4 py-1"
-      style={styles.inputField}
+      style={[styles.inputField, hasError && styles.inputFieldError]}
     >
       <View className="mr-3">{icon}</View>
       <TextInput
@@ -555,5 +704,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 8,
+  },
+  inputFieldError: {
+    borderColor: '#EF4444',
   },
 });
