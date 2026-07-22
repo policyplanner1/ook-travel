@@ -1,7 +1,7 @@
 import { CFErrorResponse, CFPaymentGatewayService } from 'react-native-cashfree-pg-sdk';
 import { CFSession } from 'cashfree-pg-api-contract';
 import { router } from 'expo-router';
-import { ArrowLeft, ExternalLink, MapPin, ShieldCheck, Star, Ticket, UserRound} from 'lucide-react-native';
+import { ArrowLeft, ExternalLink, MapPin, ShieldCheck, Ticket, UserRound} from 'lucide-react-native';
 import React, { type ReactNode } from 'react';
 import { ActivityIndicator, Alert, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -101,7 +101,7 @@ export default function QuoteScreen() {
 
   const SERVICE_CHARGE = 50;
   const basePremium = isStatic
-    ? (staticQuoteResponse?.details.premium ?? 0)
+    ? (staticQuoteResponse?.premium ?? 0)
     : (Number(quoteResponse?.premiumAmount) || 0);
   const numTravellers = planType === 'bulk' ? (totalTravellers ?? 1) : 1;
   const totalPremium = basePremium * numTravellers + SERVICE_CHARGE * numTravellers;
@@ -354,26 +354,6 @@ export default function QuoteScreen() {
                 </>
               )}
             </SectionCard>
-
-            {isStatic && staticQuoteResponse?.details ? (
-              <SectionCard title="Coverage Details" icon={<Star size={22} color="#0C4A6E" strokeWidth={2.2} />}>
-                <DetailRow label="Basic Coverage"                    value={`Rs. ${staticQuoteResponse.details.basic_coverage}`} />
-                <DetailRow label="Accidental Hospitalisation"        value={`Rs. ${staticQuoteResponse.details.accidental_hospitalization_expenses}`} />
-                <DetailRow label="Trip Cancellation"                 value={`Rs. ${staticQuoteResponse.details.trip_cancellation}`} />
-                <DetailRow label="Trip Curtailment"                  value={`Rs. ${staticQuoteResponse.details.trip_curtailment}`} />
-                <DetailRow label="Trip Delay"                        value={`Rs. ${staticQuoteResponse.details.trip_delay}`} />
-                <DetailRow label="Loss of Checked Baggage"           value={`Rs. ${staticQuoteResponse.details.loss_of_checked_baggage}`} />
-                <DetailRow label="Delay of Checked Baggage"          value={`Rs. ${staticQuoteResponse.details.delay_of_checked_baggage}`} />
-                <DetailRow label="Loss of Baggage"                   value={`Rs. ${staticQuoteResponse.details.loss_of_baggage}`} />
-                <DetailRow label="Personal Liability"                value={`Rs. ${staticQuoteResponse.details.personal_liability}`} />
-                <DetailRow label="Home Burglary Insurance"           value={`Rs. ${staticQuoteResponse.details.home_burglary_insurance}`} />
-                <DetailRow label="Emergency Hotel Extension"         value={`Rs. ${staticQuoteResponse.details.emergency_hotel_extension}`} />
-                <DetailRow label="Emergency Medical Evacuation"      value={`Rs. ${staticQuoteResponse.details.emergency_medical_evacuation}`} />
-                <DetailRow label="Bounced Hotel"                     value={`Rs. ${staticQuoteResponse.details.bounced_hotel}`} />
-                <DetailRow label="Hospitalisation Daily Allowance"   value={`Rs. ${staticQuoteResponse.details.hospitalization_daily_allowance}`} />
-                <DetailRow label="Track A Baggage"                   value={staticQuoteResponse.details.track_a_baggage_service} />
-              </SectionCard>
-            ) : null}
 
             {!isStatic && (
               <SectionCard title="Address" icon={<MapPin size={22} color="#0C4A6E" strokeWidth={2.2} />}>

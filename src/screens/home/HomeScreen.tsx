@@ -26,7 +26,7 @@ import { benefits, cities } from '@/constants/quote';
 import { PREMIUM_MODE } from '@/constants/premium-mode';
 import { fetchCkycDetails } from '@/services/ckyc.service';
 import { fetchCityStateByPincode } from '@/services/pincode.service';
-import { fetchBharatBhramanPremium, submitQuote } from '@/services/quote.service';
+import { fetchTravelInsurancePremium, submitQuote } from '@/services/quote.service';
 import { useAuth } from '@/store/auth';
 import { setLatestQuoteResult } from '@/store/quote-result';
 import type { CkycLookupResponse, CustomerDetailsFormData, OpenPanel, TravelQuoteFormData, TravelerType } from '@/types/quote';
@@ -469,7 +469,7 @@ export default function HomeScreen() {
 
       if (PREMIUM_MODE === 'static') {
         const no_of_days = calcNoOfDays(travelForm.startDate!, travelForm.endDate!);
-        const staticResponse = await fetchBharatBhramanPremium(no_of_days);
+        const staticResponse = await fetchTravelInsurancePremium(no_of_days);
         setLatestQuoteResult({
           mode: 'static',
           staticQuoteResponse: { ...staticResponse, travellerDetails: formData, lead_type: insuranceRequestType },
@@ -578,7 +578,7 @@ export default function HomeScreen() {
 
       if (PREMIUM_MODE === 'static') {
         const no_of_days = calcNoOfDays(travelForm.startDate!, travelForm.endDate!);
-        const staticResponse = await fetchBharatBhramanPremium(no_of_days);
+        const staticResponse = await fetchTravelInsurancePremium(no_of_days);
         setLatestQuoteResult({
           mode: 'static',
           staticQuoteResponse: { ...staticResponse, travellerDetails: bulkFormData, lead_type: 'bulk' },

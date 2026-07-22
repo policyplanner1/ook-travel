@@ -177,7 +177,7 @@ export type StaticQuoteTravellerDetails = {
 export type StaticQuoteResponse = {
   product: string;
   no_of_days: number;
-  details: StaticQuoteDetails;
+  premium: number;
   travellerDetails?: StaticQuoteTravellerDetails;
   lead_type?: 'individual' | 'bulk';
 };

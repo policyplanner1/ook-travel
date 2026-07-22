@@ -2,12 +2,19 @@ import axios from 'axios';
 import { api, baseURL } from '@/services/api';
 import type { CkycLookupResponse, QuotePayload, QuoteResponse, StaticQuoteResponse } from '@/types/quote';
 
-export async function fetchBharatBhramanPremium(no_of_days: number): Promise<StaticQuoteResponse> {
-  const { data } = await api.post<{ success: boolean; message: string; data: StaticQuoteResponse }>(
-    '/bajaj/bharat-bhraman',
-    { no_of_days }
-  );
-  return data.data;
+export async function fetchTravelInsurancePremium(no_of_days: number): Promise<StaticQuoteResponse> {
+  try {
+    const { data } = await api.post<{ success: boolean; message: string; data: StaticQuoteResponse }>(
+      '/travel-insurance/premium',
+      { no_of_days }
+    );
+    return data.data;
+  } catch (error) {
+    if (axios.isAxiosError<{ message?: string }>(error)) {
+      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch premium. Please try again.');
+    }
+    throw error;
+  }
 }
 
 export async function submitQuote(payload: QuotePayload, ckycData: CkycLookupResponse): Promise<QuoteResponse> {
