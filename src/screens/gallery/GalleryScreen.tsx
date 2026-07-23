@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Asset } from 'expo-asset';
 import { router } from 'expo-router';
-import { ArrowLeft, FileText } from 'lucide-react-native';
+import { ArrowLeft, Download, FileSpreadsheet, FileText } from 'lucide-react-native';
 import {
   Alert,
   Image,
@@ -46,8 +46,31 @@ export default function GalleryScreen() {
       await Linking.openURL(assetUri);
     } catch {
       Alert.alert(
-        'Unable to open PDF',
-        'The PDF file could not be opened in the browser. Please try again in a moment.'
+        'Unable to open file',
+        'The file could not be opened in the browser. Please try again in a moment.'
+      );
+    }
+  }
+
+  async function handleDownload(item: GalleryItem) {
+    try {
+      if (typeof item.source === 'string') {
+        await Linking.openURL(item.source);
+        return;
+      }
+
+      const [asset] = await Asset.loadAsync(item.source);
+      const assetUri = asset?.localUri ?? asset?.uri;
+
+      if (!assetUri) {
+        throw new Error('Missing asset URI');
+      }
+
+      await Linking.openURL(assetUri);
+    } catch {
+      Alert.alert(
+        'Unable to open file',
+        'The file could not be opened in the browser. Please try again in a moment.'
       );
     }
   }
@@ -76,7 +99,7 @@ export default function GalleryScreen() {
           <View className="mt-5">
             <Text className="text-3xl font-extrabold text-sky-950">Gallery</Text>
             <Text className="mt-2 text-sm leading-6 text-slate-600">
-              Tap any image or PDF below to preview the file.
+              Tap any item to preview it, or use the download icon to save it.
             </Text>
           </View>
 
@@ -94,6 +117,16 @@ export default function GalleryScreen() {
                     resizeMode="cover"
                     className="h-56 w-full"
                   />
+                ) : item.type === 'xlsx' ? (
+                  <View className="h-56 items-center justify-center bg-emerald-50">
+                    <View className="h-20 w-20 items-center justify-center rounded-[24px] bg-emerald-100">
+                      <FileSpreadsheet size={42} color="#059669" strokeWidth={2.2} />
+                    </View>
+                    <Text className="mt-4 text-lg font-extrabold text-sky-950">Excel Template</Text>
+                    <Text className="mt-2 px-8 text-center text-sm leading-6 text-slate-500">
+                      Download the spreadsheet template to fill in.
+                    </Text>
+                  </View>
                 ) : (
                   <View className="h-56 items-center justify-center bg-sky-50">
                     <View className="h-20 w-20 items-center justify-center rounded-[24px] bg-orange-100">
@@ -113,11 +146,12 @@ export default function GalleryScreen() {
                       <Text className="mt-1 text-sm text-slate-500">{item.fileName}</Text>
                     </View>
 
-                    {/* <View className="rounded-2xl bg-sky-100 px-4 py-3">
-                      <Text className="text-xs font-bold uppercase tracking-[1.2px] text-sky-900">
-                        {item.type}
-                      </Text>
-                    </View> */}
+                    <Pressable
+                      onPress={() => handleDownload(item)}
+                      className="h-12 w-12 items-center justify-center rounded-2xl bg-sky-100"
+                    >
+                      <Download size={20} color="#0C4A6E" strokeWidth={2.2} />
+                    </Pressable>
                   </View>
 
                   {/* <View className="mt-4 flex-row items-center">
