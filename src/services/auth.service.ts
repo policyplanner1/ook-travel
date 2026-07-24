@@ -518,6 +518,27 @@ export async function editAgentProfilePic(agentId: number, imageUri: string): Pr
   }
 }
 
+export async function deleteAccountApi(agentId: number, password: string): Promise<string> {
+  console.log('Delete account request:', { url: `${baseURL}/profile/account`, agentId });
+
+  try {
+    const { data } = await api.delete<AuthMessageResponse>('/profile/account', {
+      data: { agent_id: agentId, password },
+    });
+    console.log('Delete account response:', data);
+    return data.message || 'Account deleted successfully.';
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Delete account error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+    }
+    throw new Error(getAuthErrorMessage(error, 'Failed to delete account. Please try again.'));
+  }
+}
+
 export async function resetPasswordWithOtp(payload: ResetPasswordPayload): Promise<string> {
   const requestBody = {
     mobile: payload.mobile.trim(),

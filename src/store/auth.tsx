@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { editAgentDetails, editAgentProfilePic, loginWithApi, signupWithApi } from '@/services/auth.service';
+import { deleteAccountApi, editAgentDetails, editAgentProfilePic, loginWithApi, signupWithApi } from '@/services/auth.service';
 import type {
   AuthUser,
   LoginPayload,
@@ -44,6 +44,7 @@ type AuthContextValue = {
   updateProfilePic: (imageUri: string) => Promise<void>;
   updateBankDetails: (payload: UpdateBankDetailsPayload) => void;
   logout: () => void;
+  deleteAccount: (password: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -111,6 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await saveSession(nextUser);
   }
 
+  async function deleteAccount(password: string) {
+    if (!user) return;
+    await deleteAccountApi(user.id, password);
+    await clearSession();
+    setUser(null);
+  }
+
   function updateBankDetails(payload: UpdateBankDetailsPayload) {
     setUser((current) => {
       if (!current) {
@@ -136,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfilePic,
       updateBankDetails,
       logout,
+      deleteAccount,
     }),
     [isInitializing, isLoading, user]
   );

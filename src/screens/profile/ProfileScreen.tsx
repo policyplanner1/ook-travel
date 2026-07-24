@@ -12,6 +12,7 @@ import {
   Pencil,
   Phone,
   ShieldCheck,
+  Trash2,
   UserRound,
   X,
 } from 'lucide-react-native';
@@ -72,10 +73,13 @@ function hasAnyBankDetail(details: BankDetails | null | undefined) {
 }
 
 export default function ProfileScreen() {
-  const { logout, updateBankDetails, updateProfile, updateProfilePic, user } = useAuth();
+  const { deleteAccount, logout, updateBankDetails, updateProfile, updateProfilePic, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingPic, setIsUploadingPic] = useState(false);
   const [isBankDetailsModalVisible, setIsBankDetailsModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -144,6 +148,46 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  }
+
+  function openDeleteAccountModal() {
+    setDeletePassword('');
+    setIsDeleteModalVisible(true);
+  }
+
+  function closeDeleteAccountModal() {
+    if (isDeletingAccount) return;
+    setIsDeleteModalVisible(false);
+  }
+
+  async function handleConfirmDeleteAccount() {
+    if (!deletePassword.trim()) {
+      Alert.alert('Password required', 'Please enter your password to confirm account deletion.');
+      return;
+    }
+
+    try {
+      setIsDeletingAccount(true);
+      await deleteAccount(deletePassword);
+      setIsDeleteModalVisible(false);
+      router.replace('/login');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to delete account right now. Please try again.';
+      Alert.alert('Delete failed', message);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all associated personal data. This action cannot be undone. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', style: 'destructive', onPress: openDeleteAccountModal },
+      ]
+    );
   }
 
   async function handleUpdateProfile() {
@@ -529,6 +573,14 @@ export default function ProfileScreen() {
               <LogOut size={20} color="#FFFFFF" strokeWidth={2.4} />
               <Text className="ml-2 text-lg font-extrabold text-white">Logout</Text>
             </Pressable>
+
+            <Pressable
+              onPress={handleDeleteAccount}
+              className="mt-3 flex-row items-center justify-center rounded-[22px] border border-rose-200 bg-white px-5 py-4"
+            >
+              <Trash2 size={18} color="#BE123C" strokeWidth={2.3} />
+              <Text className="ml-2 text-base font-bold text-rose-700">Delete Account</Text>
+            </Pressable>
           </View>
         </ScrollView>
 
@@ -676,6 +728,52 @@ export default function ProfileScreen() {
                       : hasBankDetails
                         ? 'Update Details'
                         : 'Save Details'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={isDeleteModalVisible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={closeDeleteAccountModal} />
+
+            <View className="mx-5 overflow-hidden rounded-[30px] bg-white">
+              <View className="flex-row items-start justify-between border-b border-slate-100 px-5 py-5">
+                <View className="mr-4 flex-1">
+                  <Text className="text-2xl font-extrabold text-sky-950">Delete Account</Text>
+                  <Text className="mt-2 text-sm leading-6 text-slate-500">
+                    Enter your password to permanently delete your account.
+                  </Text>
+                </View>
+
+                <Pressable
+                  onPress={closeDeleteAccountModal}
+                  className="h-11 w-11 items-center justify-center rounded-2xl bg-slate-100"
+                >
+                  <X size={20} color="#0F172A" strokeWidth={2.3} />
+                </Pressable>
+              </View>
+
+              <View className="px-5 py-5">
+                <ProfileInput
+                  label="Password"
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View className="border-t border-slate-100 px-5 py-5">
+                <Pressable
+                  onPress={handleConfirmDeleteAccount}
+                  className={`rounded-[22px] px-5 py-4 ${isDeletingAccount ? 'bg-rose-300' : 'bg-rose-600'}`}
+                  disabled={isDeletingAccount}
+                >
+                  <Text className="text-center text-lg font-extrabold text-white">
+                    {isDeletingAccount ? 'Deleting...' : 'Permanently Delete Account'}
                   </Text>
                 </Pressable>
               </View>

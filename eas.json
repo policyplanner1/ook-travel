@@ -34,5 +34,14 @@
         "EXPO_PUBLIC_CASHFREE_MODE": "prod"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "vivek.pawar@policyplanner.com",
+        "ascAppId": "6794244810",
+        "appleTeamId": "W2JCTWQZLY"
+      }
+    }
   }
 }
