@@ -39,6 +39,7 @@ export type SignupPayload = {
   phone: string;
   password: string;
   confirmPassword: string;
+  rmCode?: string;
 };
 
 export type UpdateProfilePayload = {

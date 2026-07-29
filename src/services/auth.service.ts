@@ -93,6 +93,15 @@ type AuthMessageResponse = {
   message: string;
 };
 
+type VerifyRmCodeResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    rmCode: string;
+    rmName: string;
+  };
+};
+
 function formatJoinedOn() {
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
@@ -259,13 +268,48 @@ export async function loginWithApi(payload: LoginPayload): Promise<AuthUser> {
   }
 }
 
+export async function verifyRmCode(rmCode: string): Promise<{ rmCode: string; rmName: string }> {
+  const requestBody = { rmCode: rmCode.trim().toUpperCase() };
+
+  if (!requestBody.rmCode) {
+    throw new Error('RM code is required.');
+  }
+
+  console.log('Verify RM code request:', {
+    url: `${baseURL}/auth/verify-rm-code`,
+    body: requestBody,
+  });
+
+  try {
+    const { data } = await api.post<VerifyRmCodeResponse>('/auth/verify-rm-code', requestBody);
+    console.log('Verify RM code response:', data);
+    return data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.log('Verify RM code error:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: `${baseURL}/auth/verify-rm-code`,
+      });
+    }
+
+    throw new Error(getAuthErrorMessage(error, 'Invalid RM code. Please check and try again.'));
+  }
+}
+
 export async function signupWithApi(payload: SignupPayload): Promise<AuthUser> {
+  const trimmedRmCode = payload.rmCode?.trim().toUpperCase() ?? '';
+
   const requestBody = {
     fullName: payload.fullName.trim(),
     email: payload.email.trim().toLowerCase(),
     phoneNumber: payload.phone.trim(),
     password: payload.password,
     confirmPassword: payload.confirmPassword,
+    // Optional — only included when the agent said they have one.
+    ...(trimmedRmCode ? { rmCode: trimmedRmCode } : {}),
   };
 
   if (

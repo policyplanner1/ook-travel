@@ -2,7 +2,7 @@
   "expo": {
     "name": "ookTravel",
     "slug": "ookTravel",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/travel-icon.png",
     "scheme": "ooktravel",
@@ -34,7 +34,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.maapranaamfortune.ooktravel",
-      "versionCode": 7
+      "versionCode": 8
     },
     "web": {
       "output": "static",

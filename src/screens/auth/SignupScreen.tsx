@@ -19,6 +19,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  Hash,
   LockKeyhole,
   Mail,
   Phone,
@@ -27,11 +28,11 @@ import {
 } from 'lucide-react-native';
 
 import { useAuth } from '@/store/auth';
-import { sendSignupOtp, verifySignupOtp } from '@/services/auth.service';
+import { sendSignupOtp, verifyRmCode, verifySignupOtp } from '@/services/auth.service';
 
 type SignupStep = 'form' | 'otp';
 
-type SignupField = 'fullName' | 'email' | 'phone' | 'password' | 'confirmPassword';
+type SignupField = 'fullName' | 'email' | 'phone' | 'rmCode' | 'password' | 'confirmPassword';
 
 type FieldErrors = Partial<Record<SignupField, string>>;
 
@@ -61,6 +62,13 @@ function validatePhone(value: string): string | undefined {
   return undefined;
 }
 
+function validateRmCode(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return 'RM code is required';
+  if (trimmed.length < 4 || trimmed.length > 20) return 'Invalid RM code';
+  return undefined;
+}
+
 function validatePassword(value: string): string | undefined {
   if (!value) return 'Password is required';
   if (value.length < 8) return 'Password must be at least 8 characters';
@@ -85,6 +93,8 @@ export default function SignupScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [hasRmCode, setHasRmCode] = useState(false);
+  const [rmCode, setRmCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -159,6 +169,13 @@ export default function SignupScreen() {
     }
   }
 
+  function handleRmCodeChange(value: string) {
+    setRmCode(value);
+    if (errors.rmCode) {
+      setErrors((prev) => ({ ...prev, rmCode: validateRmCode(value) }));
+    }
+  }
+
   function handlePasswordChange(value: string) {
     setPassword(value);
     if (errors.password) {
@@ -188,6 +205,18 @@ export default function SignupScreen() {
     setErrors((prev) => ({ ...prev, phone: validatePhone(phone) }));
   }
 
+  function handleRmCodeBlur() {
+    setErrors((prev) => ({ ...prev, rmCode: hasRmCode ? validateRmCode(rmCode) : undefined }));
+  }
+
+  function handleToggleHasRmCode(value: boolean) {
+    setHasRmCode(value);
+    if (!value) {
+      setRmCode('');
+      setErrors((prev) => ({ ...prev, rmCode: undefined }));
+    }
+  }
+
   function handlePasswordBlur() {
     setErrors((prev) => ({ ...prev, password: validatePassword(password) }));
   }
@@ -209,13 +238,14 @@ export default function SignupScreen() {
       fullName: validateFullName(fullName),
       email: validateEmail(email),
       phone: validatePhone(phone),
+      rmCode: hasRmCode ? validateRmCode(rmCode) : undefined,
       password: validatePassword(password),
       confirmPassword: validateConfirmPassword(confirmPassword, password),
     };
     setErrors(nextErrors);
 
     const firstInvalidField = (
-      ['fullName', 'email', 'phone', 'password', 'confirmPassword'] as const
+      ['fullName', 'email', 'phone', 'rmCode', 'password', 'confirmPassword'] as const
     ).find((field) => nextErrors[field]);
 
     if (firstInvalidField) {
@@ -226,6 +256,19 @@ export default function SignupScreen() {
     setIsOtpSending(true);
 
     try {
+      if (hasRmCode) {
+        try {
+          await verifyRmCode(rmCode);
+        } catch (error) {
+          setErrors((prev) => ({
+            ...prev,
+            rmCode: error instanceof Error ? error.message : 'Invalid RM code. Please check and try again.',
+          }));
+          scrollToField('rmCode');
+          return;
+        }
+      }
+
       const message = await sendSignupOtp({ phone });
       Alert.alert('OTP sent', message);
       setStep('otp');
@@ -268,7 +311,14 @@ export default function SignupScreen() {
   async function handleVerifyAndSignup() {
     try {
       await verifySignupOtp({ phone, otp });
-      await signup({ fullName, email, phone, password, confirmPassword });
+      await signup({
+        fullName,
+        email,
+        phone,
+        password,
+        confirmPassword,
+        rmCode: hasRmCode ? rmCode : undefined,
+      });
       Alert.alert('Account created', 'Your account has been created successfully!', [
         { text: 'OK', onPress: () => router.replace('/') },
       ]);
@@ -354,6 +404,66 @@ export default function SignupScreen() {
                   {errors.phone}
                 </Text>
               ) : null}
+            </View>
+            <View onLayout={(event) => registerFieldPosition('rmCode', event.nativeEvent.layout.y)}>
+              <Text className="mb-2 ml-1 text-[15px] font-semibold text-sky-950/80">
+                Do you have an RM code?
+              </Text>
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => handleToggleHasRmCode(true)}
+                  className={`flex-1 items-center rounded-[14px] border py-3 ${
+                    hasRmCode ? 'border-orange-500 bg-orange-50' : 'border-slate-300 bg-white/70'
+                  }`}
+                >
+                  <Text
+                    className={`text-[15px] font-bold ${hasRmCode ? 'text-orange-600' : 'text-slate-500'}`}
+                  >
+                    Yes
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleToggleHasRmCode(false)}
+                  className={`flex-1 items-center rounded-[14px] border py-3 ${
+                    !hasRmCode ? 'border-orange-500 bg-orange-50' : 'border-slate-300 bg-white/70'
+                  }`}
+                >
+                  <Text
+                    className={`text-[15px] font-bold ${!hasRmCode ? 'text-orange-600' : 'text-slate-500'}`}
+                  >
+                    No
+                  </Text>
+                </Pressable>
+              </View>
+
+              {hasRmCode ? (
+                <View className="mt-3">
+                  <AuthField
+                    icon={<Hash color="#94A3B8" size={20} strokeWidth={2.2} />}
+                    value={rmCode}
+                    onChangeText={handleRmCodeChange}
+                    onBlur={handleRmCodeBlur}
+                    placeholder="Enter RM code"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    onFocus={() => scrollToField('rmCode')}
+                    hasError={Boolean(errors.rmCode)}
+                  />
+                  {errors.rmCode ? (
+                    <Text className="mt-1.5 ml-1 text-[13px] font-medium text-red-500">
+                      {errors.rmCode}
+                    </Text>
+                  ) : (
+                    <Text className="mt-1.5 ml-1 text-[13px] text-slate-500">
+                      Ask your Relationship Manager for their code
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <Text className="mt-2 ml-1 text-[13px] text-slate-500">
+                  No problem — we'll assign you to an available Relationship Manager automatically.
+                </Text>
+              )}
             </View>
             <View onLayout={(event) => registerFieldPosition('password', event.nativeEvent.layout.y)}>
               <AuthField
