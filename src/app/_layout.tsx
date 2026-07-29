@@ -1,10 +1,13 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { UpdateModal } from '@/components/common/UpdateModal';
+import { checkAppVersion } from '@/services/version.service';
 import { AuthProvider, useAuth } from '@/store/auth';
+import type { VersionCheckData } from '@/types/version';
 
 import '../../global.css';
 
@@ -13,9 +16,41 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <RootNavigator />
+        <AppUpdateGate />
         <StatusBar style="auto" />
       </AuthProvider>
     </SafeAreaProvider>
+  );
+}
+
+function AppUpdateGate() {
+  const [versionInfo, setVersionInfo] = useState<VersionCheckData | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    checkAppVersion()
+      .then((data) => {
+        console.log('[version-check] response:', data);
+        if (data.updateAvailable) setVersionInfo(data);
+      })
+      .catch((error) => {
+        console.warn('[version-check] failed:', error?.message ?? error);
+      });
+  }, []);
+
+  if (!versionInfo || (dismissed && !versionInfo.forceUpdate)) {
+    return null;
+  }
+
+  return (
+    <UpdateModal
+      visible
+      forceUpdate={versionInfo.forceUpdate}
+      latestVersion={versionInfo.latestVersion}
+      releaseNotes={versionInfo.releaseNotes}
+      updateUrl={versionInfo.updateUrl}
+      onDismiss={() => setDismissed(true)}
+    />
   );
 }
 
