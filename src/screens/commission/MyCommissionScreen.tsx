@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { Animated, Dimensions, Easing } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
-import { IndianRupee } from 'lucide-react-native';
 import {
   ImageBackground,
   Pressable,
@@ -28,7 +27,6 @@ const currencyFormatter = new Intl.NumberFormat('en-IN');
 const screenWidth = Dimensions.get('window').width;
 const baseChartWidth = screenWidth - 76;
 const yAxisStep = 100; //changed
-const COMMISSION_RATE = 0.25;
 const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const rangeTabs: { label: string; value: CommissionRange }[] = [
   { label: 'Quarterly', value: 'quarterly' },
@@ -105,8 +103,25 @@ export default function MyCommissionScreen() {
     };
   }, [isFocused]);
 
-  const yearlyBreakdown = useMemo(() => buildYearlyBreakdown(policies), [policies]);
-  const localSummary = useMemo(() => buildCommissionSummary(policies), [policies]);
+  const effectiveCommissionRate = useMemo(() => {
+    const totalPremium = Number(backendSummary?.total_premium);
+    const commissionEarned = Number(backendSummary?.commission_earned);
+
+    if (!backendSummary || !Number.isFinite(totalPremium) || totalPremium <= 0) {
+      return 0;
+    }
+
+    return commissionEarned / totalPremium;
+  }, [backendSummary]);
+
+  const yearlyBreakdown = useMemo(
+    () => buildYearlyBreakdown(policies, effectiveCommissionRate),
+    [policies, effectiveCommissionRate]
+  );
+  const localSummary = useMemo(
+    () => buildCommissionSummary(policies, effectiveCommissionRate),
+    [policies, effectiveCommissionRate]
+  );
   const commissionSummary = backendSummary
     ? {
         earnings:   Number(backendSummary.commission_earned),
@@ -319,7 +334,7 @@ export default function MyCommissionScreen() {
   );
 }
 
-function buildCommissionSummary(policies: IssuedPolicyRecord[]) {
+function buildCommissionSummary(policies: IssuedPolicyRecord[], commissionRate: number) {
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -343,13 +358,13 @@ function buildCommissionSummary(policies: IssuedPolicyRecord[]) {
   }
 
   return {
-    earnings: Math.round(totalSales * COMMISSION_RATE),
+    earnings: Math.round(totalSales * commissionRate),
     totalSales: Math.round(totalSales),
-    thisMonth: Math.round(thisMonthSales * COMMISSION_RATE),
+    thisMonth: Math.round(thisMonthSales * commissionRate),
   };
 }
 
-function buildYearlyBreakdown(policies: IssuedPolicyRecord[]): CommissionPoint[] {
+function buildYearlyBreakdown(policies: IssuedPolicyRecord[], commissionRate: number): CommissionPoint[] {
   const currentYear = new Date().getFullYear();
   const monthlyCommission = new Array<number>(12).fill(0);
 
@@ -361,7 +376,7 @@ function buildYearlyBreakdown(policies: IssuedPolicyRecord[]): CommissionPoint[]
       continue;
     }
 
-    monthlyCommission[createdAt.getMonth()] += premium * COMMISSION_RATE;
+    monthlyCommission[createdAt.getMonth()] += premium * commissionRate;
   }
 
   return monthLabels.map((label, index) => ({
