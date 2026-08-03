@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "663909398462",
+    "project_id": "ooktravel-5a232",
+    "storage_bucket": "ooktravel-5a232.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:663909398462:android:2a9a812788803d674bebef",
+        "android_client_info": {
+          "package_name": "com.maapranaamfortune.ooktravel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCC4ap6lFCRWOhK3hSRdtctzPO9YPZDqPM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

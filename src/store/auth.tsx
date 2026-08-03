@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { deleteAccountApi, editAgentDetails, editAgentProfilePic, loginWithApi, signupWithApi } from '@/services/auth.service';
+import { registerPushToken, unregisterPushToken } from '@/services/notification.service';
 import type {
   AuthUser,
   LoginPayload,
@@ -56,7 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadSession().then((savedUser) => {
-      if (savedUser) setUser(savedUser);
+      if (savedUser) {
+        setUser(savedUser);
+        // Covers agents who were already logged in when push notifications shipped —
+        // login()/signup() only register the token for brand-new sessions.
+        registerPushToken(savedUser.id);
+      }
       setIsInitializing(false);
     });
   }, []);
@@ -69,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("nextUser",nextUser)
       await saveSession(nextUser);
       setUser(nextUser);
+      await registerPushToken(nextUser.id);
     } finally {
       setIsLoading(false);
     }
@@ -81,12 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextUser = await signupWithApi(payload);
       await saveSession(nextUser);
       setUser(nextUser);
+      await registerPushToken(nextUser.id);
     } finally {
       setIsLoading(false);
     }
   }
 
   async function logout() {
+    if (user) await unregisterPushToken(user.id);
     await clearSession();
     setUser(null);
   }

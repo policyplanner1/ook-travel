@@ -1,6 +1,8 @@
+import { useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Bell } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   type AlertButton,
@@ -25,6 +27,7 @@ import { QuoteStepTwo } from '@/components/forms/QuoteStepTwo';
 import { benefits, cities } from '@/constants/quote';
 import { PREMIUM_MODE } from '@/constants/premium-mode';
 import { fetchCkycDetails } from '@/services/ckyc.service';
+import { getUnreadNotificationCount, markAllNotificationsRead } from '@/services/notification.service';
 import { fetchCityStateByPincode } from '@/services/pincode.service';
 import { fetchTravelInsurancePremium, submitQuote } from '@/services/quote.service';
 import { useAuth } from '@/store/auth';
@@ -85,7 +88,8 @@ const allowedBulkDocumentTypes = [
 const allowedBulkDocumentExtensions = ['csv', 'xls', 'xlsx'];
 
 export default function HomeScreen() {
-  const { logout } = useAuth();
+  const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const fieldPositionsRef = useRef<Partial<Record<keyof CustomerDetailsFormData, number>>>({});
   const [step, setStep] = useState<1 | 2>(1);
@@ -113,6 +117,25 @@ export default function HomeScreen() {
 
     return cities.filter((city) => city.toLowerCase().includes(query));
   }, [travelForm.destinationQuery]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      getUnreadNotificationCount(user.id).then(setUnreadCount);
+    }, [user?.id])
+  );
+
+  async function handleBellPress() {
+    if (user?.id && unreadCount > 0) {
+      try {
+        await markAllNotificationsRead(user.id);
+        setUnreadCount(0);
+      } catch {
+        // best-effort — leave badge as-is if this fails, NotificationsScreen still allows manual mark-read
+      }
+    }
+    router.push('/notifications');
+  }
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -657,15 +680,22 @@ export default function HomeScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
         >
-          {/* <View className="absolute left-5 top-8 z-10">
+          <View className="absolute right-5 top-8 z-10">
             <Pressable
-              onPress={handleLogout}
-              className="h-12 w-12 items-center justify-center rounded-2xl "
-              
+              onPress={handleBellPress}
+              className="h-12 w-12 items-center justify-center rounded-2xl bg-white/90"
+              style={styles.bellShadow}
             >
-              <Power size={22} color="#d1001f" strokeWidth={2.4} />
+              <Bell size={22} color="#0C4A6E" strokeWidth={2.3} />
+              {unreadCount > 0 && (
+                <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1">
+                  <Text className="text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
-          </View> */}
+          </View>
 
           <ScrollView
             ref={scrollViewRef}
@@ -888,6 +918,13 @@ const styles = StyleSheet.create({
   backgroundImage: {
     height: '100%',
     width: '100%',
+  },
+  bellShadow: {
+    elevation: 8,
+    shadowColor: '#1E6BA8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
   },
   titleShadow: {
     textShadowColor: 'rgba(12, 74, 110, 0.22)',

@@ -34,7 +34,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.maapranaamfortune.ooktravel",
-      "versionCode": 8
+      "versionCode": 8,
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -61,6 +62,13 @@
         {
           "photosPermission": "ookTravel needs access to your photos so you can set your profile picture.",
           "cameraPermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#208AEF"
         }
       ]
     ],
