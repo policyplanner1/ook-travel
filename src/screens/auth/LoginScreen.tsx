@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eye, EyeOff, LockKeyhole, MoveRight, UserRound } from 'lucide-react-native';
 
 import { useAuth } from '@/store/auth';
+import { consumePendingRedirect } from '@/store/pending-redirect';
 
 export default function LoginScreen() {
   const { isLoading, login } = useAuth();
@@ -27,7 +28,7 @@ export default function LoginScreen() {
   async function handleLogin() {
     try {
       await login({ identifier, password });
-      router.replace('/');
+      router.replace(consumePendingRedirect() ?? '/');
     } catch (error) {
       Alert.alert(
         'Login failed',

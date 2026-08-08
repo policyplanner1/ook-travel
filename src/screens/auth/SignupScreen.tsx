@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 
 import { useAuth } from '@/store/auth';
+import { consumePendingRedirect } from '@/store/pending-redirect';
 import { sendSignupOtp, verifyRmCode, verifySignupOtp } from '@/services/auth.service';
 
 type SignupStep = 'form' | 'otp';
@@ -320,7 +321,7 @@ export default function SignupScreen() {
         rmCode: hasRmCode ? rmCode : undefined,
       });
       Alert.alert('Account created', 'Your account has been created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/') },
+        { text: 'OK', onPress: () => router.replace(consumePendingRedirect() ?? '/') },
       ]);
     } catch (error) {
       Alert.alert(

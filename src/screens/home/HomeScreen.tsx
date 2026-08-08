@@ -680,22 +680,24 @@ export default function HomeScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
         >
-          <View className="absolute right-5 top-8 z-10">
-            <Pressable
-              onPress={handleBellPress}
-              className="h-12 w-12 items-center justify-center rounded-2xl bg-white/90"
-              style={styles.bellShadow}
-            >
-              <Bell size={22} color="#0C4A6E" strokeWidth={2.3} />
-              {unreadCount > 0 && (
-                <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1">
-                  <Text className="text-[10px] font-bold text-white">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
+          {user && (
+            <View className="absolute right-5 top-8 z-10">
+              <Pressable
+                onPress={handleBellPress}
+                className="h-12 w-12 items-center justify-center rounded-2xl bg-white/90"
+                style={styles.bellShadow}
+              >
+                <Bell size={22} color="#0C4A6E" strokeWidth={2.3} />
+                {unreadCount > 0 && (
+                  <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1">
+                    <Text className="text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          )}
 
           <ScrollView
             ref={scrollViewRef}

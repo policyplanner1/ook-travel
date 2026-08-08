@@ -10,6 +10,7 @@ import { cashfreeEnvironment } from '@/services/api';
 import { completePaymentOrder, createPaymentOrder, verifyPaymentOrder } from '@/services/payment.service';
 import { submitBulkInsuranceUpload } from '@/services/policy.service';
 import { useAuth } from '@/store/auth';
+import { setPendingRedirect } from '@/store/pending-redirect';
 import { clearLatestQuoteResult, getLatestQuoteResult } from '@/store/quote-result';
 
 const MONTH_MAP: Record<string, string> = {
@@ -218,7 +219,11 @@ export default function QuoteScreen() {
   }
 
   async function startPayment() {
-    if (!user) return;
+    if (!user) {
+      setPendingRedirect('/quote');
+      router.push('/login');
+      return;
+    }
     setIsSubmitting(true);
 
     try {

@@ -144,7 +144,7 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: () => {
           logout();
-          router.replace('/login');
+          router.replace('/');
         },
       },
     ]);
@@ -170,7 +170,7 @@ export default function ProfileScreen() {
       setIsDeletingAccount(true);
       await deleteAccount(deletePassword);
       setIsDeleteModalVisible(false);
-      router.replace('/login');
+      router.replace('/');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to delete account right now. Please try again.';
       Alert.alert('Delete failed', message);

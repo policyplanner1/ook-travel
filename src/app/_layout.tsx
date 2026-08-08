@@ -1,4 +1,4 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -56,23 +56,6 @@ function AppUpdateGate() {
 
 function RootNavigator() {
   const { isAuthenticated, isInitializing } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isInitializing) return;
-
-    const AUTH_ONLY_ROUTES = new Set(['login', 'signup', 'forgot-password']);
-    const PUBLIC_ROUTES = new Set(['terms-and-conditions', 'privacy-policy']);
-    const onAuthOnlyRoute = AUTH_ONLY_ROUTES.has(segments[0] as string);
-    const onPublicRoute = PUBLIC_ROUTES.has(segments[0] as string);
-
-    if (!isAuthenticated && !onAuthOnlyRoute && !onPublicRoute) {
-      router.replace('/login');
-    } else if (isAuthenticated && onAuthOnlyRoute) {
-      router.replace('/(tabs)');
-    }
-  }, [isAuthenticated, isInitializing, segments]);
 
   if (isInitializing) {
     return (
@@ -82,28 +65,35 @@ function RootNavigator() {
     );
   }
 
-  if (isAuthenticated) {
-    return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="gallery" />
-        <Stack.Screen name="policy-issued" />
-        <Stack.Screen name="quote" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="notifications" />
-        <Stack.Screen name="terms-and-conditions" />
-        <Stack.Screen name="privacy-policy" />
-      </Stack>
-    );
-  }
-
+  // Single Stack instance kept alive across auth changes — swapping between two entirely
+  // separate <Stack> trees (as this used to do) remounts the navigator and makes it fall back
+  // to its first declared screen instead of the actual current route. Stack.Protected toggles
+  // screen availability in place, so login/logout redirect correctly without hijacking the
+  // current path.
+  //
+  // (tabs) (home quote form + my-policies/my-commission) and quote (premium/quote details) stay
+  // unguarded — quote browsing is public per App Store 5.1.1(v). Login is only required at
+  // checkout/payment (guarded in QuoteScreen) and for account-specific tabs (guarded via
+  // RequireAuth).
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="signup" />
-      <Stack.Screen name="forgot-password" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="quote" />
       <Stack.Screen name="terms-and-conditions" />
       <Stack.Screen name="privacy-policy" />
+
+      <Stack.Protected guard={!isAuthenticated}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
+        <Stack.Screen name="forgot-password" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={isAuthenticated}>
+        <Stack.Screen name="gallery" />
+        <Stack.Screen name="policy-issued" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="notifications" />
+      </Stack.Protected>
     </Stack>
   );
 }
