@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff, LockKeyhole, MoveRight, UserRound } from 'lucide-react-native';
+import { ArrowLeft, Eye, EyeOff, LockKeyhole, MoveRight, UserRound } from 'lucide-react-native';
 
 import { useAuth } from '@/store/auth';
 import { consumePendingRedirect } from '@/store/pending-redirect';
@@ -24,6 +24,14 @@ export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+  function handleBack() {
+    // Not router.back(): Stack.Protected prunes guarded screens from history when auth state
+    // changes, which can leave canGoBack() reporting stale state and GO_BACK silently failing.
+    // Login is only ever reached from Home-adjacent actions, so replacing to Home is always
+    // the correct "cancel" destination.
+    router.replace('/');
+  }
 
   async function handleLogin() {
     try {
@@ -45,6 +53,16 @@ export default function LoginScreen() {
       imageStyle={styles.backgroundImage}
     >
       <SafeAreaView className="flex-1">
+        <View className="absolute left-5 top-8 z-10">
+          <Pressable
+            onPress={handleBack}
+            className="h-12 w-12 items-center justify-center rounded-2xl bg-white/90"
+            style={styles.iconShadow}
+          >
+            <ArrowLeft size={22} color="#0C4A6E" strokeWidth={2.3} />
+          </Pressable>
+        </View>
+
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -211,6 +229,13 @@ const styles = StyleSheet.create({
     borderColor: '#C7D2E0',
     elevation: 4,
     shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+  },
+  iconShadow: {
+    elevation: 6,
+    shadowColor: '#082F49',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 8,

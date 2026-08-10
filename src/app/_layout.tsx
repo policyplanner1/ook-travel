@@ -74,7 +74,7 @@ function RootNavigator() {
   // (tabs) (home quote form + my-policies/my-commission) and quote (premium/quote details) stay
   // unguarded — quote browsing is public per App Store 5.1.1(v). Login is only required at
   // checkout/payment (guarded in QuoteScreen) and for account-specific tabs (guarded via
-  // RequireAuth).
+  // Tabs.Protected in (tabs)/_layout.tsx).
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />

@@ -31,6 +31,7 @@ import { getUnreadNotificationCount, markAllNotificationsRead } from '@/services
 import { fetchCityStateByPincode } from '@/services/pincode.service';
 import { fetchTravelInsurancePremium, submitQuote } from '@/services/quote.service';
 import { useAuth } from '@/store/auth';
+import { setPendingRedirect } from '@/store/pending-redirect';
 import { setLatestQuoteResult } from '@/store/quote-result';
 import type { CkycLookupResponse, CustomerDetailsFormData, OpenPanel, TravelQuoteFormData, TravelerType } from '@/types/quote';
 
@@ -126,7 +127,13 @@ export default function HomeScreen() {
   );
 
   async function handleBellPress() {
-    if (user?.id && unreadCount > 0) {
+    if (!user) {
+      setPendingRedirect('/notifications');
+      router.push('/login');
+      return;
+    }
+
+    if (unreadCount > 0) {
       try {
         await markAllNotificationsRead(user.id);
         setUnreadCount(0);
@@ -285,14 +292,16 @@ export default function HomeScreen() {
   }
 
   function handleBenefitPress(label: string) {
-    if (label === 'My Business') {
-      router.navigate('/my-policies');
+    const target = label === 'My Business' ? '/my-policies' : label === 'My Earnings' ? '/my-commission' : null;
+    if (!target) return;
+
+    if (!user) {
+      setPendingRedirect(target);
+      router.push('/login');
       return;
     }
 
-    if (label === 'My Earnings') {
-      router.navigate('/my-commission');
-    }
+    router.navigate(target);
   }
 
   function handleFieldLayout(key: keyof CustomerDetailsFormData, y: number) {
@@ -680,24 +689,22 @@ export default function HomeScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
         >
-          {user && (
-            <View className="absolute right-5 top-8 z-10">
-              <Pressable
-                onPress={handleBellPress}
-                className="h-12 w-12 items-center justify-center rounded-2xl bg-white/90"
-                style={styles.bellShadow}
-              >
-                <Bell size={22} color="#0C4A6E" strokeWidth={2.3} />
-                {unreadCount > 0 && (
-                  <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1">
-                    <Text className="text-[10px] font-bold text-white">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            </View>
-          )}
+          <View className="absolute right-5 top-8 z-10">
+            <Pressable
+              onPress={handleBellPress}
+              className="h-12 w-12 items-center justify-center rounded-2xl bg-white/90"
+              style={styles.bellShadow}
+            >
+              <Bell size={22} color="#0C4A6E" strokeWidth={2.3} />
+              {user && unreadCount > 0 && (
+                <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1">
+                  <Text className="text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
 
           <ScrollView
             ref={scrollViewRef}

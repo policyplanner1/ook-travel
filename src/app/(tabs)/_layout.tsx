@@ -1,12 +1,16 @@
-import { Tabs } from 'expo-router';
-import { CircleHelp, House, IndianRupee, ShieldCheck } from 'lucide-react-native';
+import { router, Tabs } from 'expo-router';
+import { House, IndianRupee, ShieldCheck, UserRound } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useAuth } from '@/store/auth';
+import { setPendingRedirect } from '@/store/pending-redirect';
 
 const ACTIVE_COLOR = '#0C4A6E';
 const INACTIVE_COLOR = '#94A3B8';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useAuth();
 
   return (
     <Tabs
@@ -52,6 +56,17 @@ export default function TabLayout() {
             <ShieldCheck color={color} size={size} strokeWidth={2.3} />
           ),
         }}
+        listeners={{
+          tabPress: (e) => {
+            // Intercept before the tab transition starts — redirecting *after* letting the
+            // transition begin (e.g. from a useEffect on the destination screen) races the
+            // in-flight native screen-mount animation and crashes Fabric's view mounting.
+            if (isAuthenticated) return;
+            e.preventDefault();
+            setPendingRedirect('/my-policies');
+            router.push('/login');
+          },
+        }}
       />
       <Tabs.Screen
         name="my-commission"
@@ -61,13 +76,21 @@ export default function TabLayout() {
             <IndianRupee color={color} size={size} strokeWidth={2.3} />
           ),
         }}
+        listeners={{
+          tabPress: (e) => {
+            if (isAuthenticated) return;
+            e.preventDefault();
+            setPendingRedirect('/my-commission');
+            router.push('/login');
+          },
+        }}
       />
       <Tabs.Screen
         name="help"
         options={{
-          title: 'Help',
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <CircleHelp color={color} size={size} strokeWidth={2.3} />
+            <UserRound color={color} size={size} strokeWidth={2.3} />
           ),
         }}
       />

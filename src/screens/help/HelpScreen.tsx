@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/services/api';
 import { useAuth } from '@/store/auth';
+import { setPendingRedirect } from '@/store/pending-redirect';
 
 const faqs = [
   {
@@ -76,6 +77,15 @@ function FAQItem({
 export default function HelpScreen() {
   const { user } = useAuth();
   const [rmContact, setRmContact] = useState<RmContact>(null);
+
+  function goTo(path: '/gallery' | '/profile') {
+    if (!user) {
+      setPendingRedirect(path);
+      router.push('/login');
+      return;
+    }
+    router.push(path);
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -179,7 +189,7 @@ export default function HelpScreen() {
           </View>
 
           <Pressable
-            onPress={() => router.push('/gallery')}
+            onPress={() => goTo('/gallery')}
             className="mt-5 flex-row items-center rounded-[28px] bg-white/95 px-5 py-5"
             style={styles.panelShadow}
           >
@@ -196,7 +206,7 @@ export default function HelpScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/profile')}
+            onPress={() => goTo('/profile')}
             className="mt-5 flex-row items-center rounded-[28px] bg-white/95 px-5 py-5"
             style={styles.panelShadow}
           >
