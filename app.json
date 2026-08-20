@@ -2,7 +2,7 @@
   "expo": {
     "name": "ookTravel",
     "slug": "ookTravel",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/travel-icon.png",
     "scheme": "ooktravel",
@@ -10,6 +10,7 @@
     "ios": {
       "icon": "./assets/images/travel-icon.png",
       "bundleIdentifier": "com.maapranaamfortune.ooktravel",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationQueriesSchemes": [
@@ -35,7 +36,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.maapranaamfortune.ooktravel",
-      "versionCode": 8,
+      "versionCode": 10,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
